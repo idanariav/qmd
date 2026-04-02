@@ -32,7 +32,11 @@ import type {
   Collection,
   CollectionConfig,
   ContextMap,
+  SectionFilter,
 } from "./collections.js";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import type { Heading, Root } from "mdast";
 
 // =============================================================================
 // Configuration
@@ -57,6 +61,67 @@ export const CHUNK_OVERLAP_CHARS = CHUNK_OVERLAP_TOKENS * 4;  // 540 chars
 // Search window for finding optimal break points (in tokens, ~200 tokens)
 export const CHUNK_WINDOW_TOKENS = 200;
 export const CHUNK_WINDOW_CHARS = CHUNK_WINDOW_TOKENS * 4;  // 800 chars
+
+// =============================================================================
+// Section Extraction (AST-based)
+// =============================================================================
+
+/**
+ * Extract plain text from a heading AST node's children.
+ */
+function headingText(node: Heading): string {
+  return node.children
+    .map((child) => {
+      if ("value" in child) return child.value;
+      if ("children" in child) return headingText(child as unknown as Heading);
+      return "";
+    })
+    .join("");
+}
+
+/**
+ * Extract content under a specific heading using AST-based parsing.
+ *
+ * Finds the heading matching the given name and level, and returns
+ * all content between it and the next heading of same-or-higher level,
+ * or end of document. Headings inside code blocks are correctly ignored
+ * by the remark parser.
+ *
+ * Returns the original text (preserving formatting) via position offsets,
+ * or null if the heading is not found.
+ */
+export function extractSectionByHeading(
+  text: string,
+  sectionFilter: SectionFilter
+): string | null {
+  const tree: Root = unified().use(remarkParse).parse(text);
+
+  let sectionStart: number | null = null;
+  let sectionEnd: number | null = null;
+
+  for (const node of tree.children) {
+    if (node.type !== "heading") continue;
+    const heading = node as Heading;
+
+    if (sectionStart !== null) {
+      if (heading.depth <= sectionFilter.level) {
+        sectionEnd = heading.position!.start.offset!;
+        break;
+      }
+    } else if (
+      heading.depth === sectionFilter.level &&
+      headingText(heading).trim() === sectionFilter.heading
+    ) {
+      sectionStart = heading.position!.end.offset!;
+    }
+  }
+
+  if (sectionStart === null) return null;
+  if (sectionEnd === null) sectionEnd = text.length;
+
+  const content = text.substring(sectionStart, sectionEnd).trim();
+  return content || null;
+}
 
 /**
  * Get the LlamaCpp instance for a store — prefers the store's own instance,
@@ -818,9 +883,16 @@ function initializeDatabase(db: Database): void {
       ignore_patterns TEXT,
       include_by_default INTEGER DEFAULT 1,
       update_command TEXT,
-      context TEXT
+      context TEXT,
+      section TEXT
     )
   `);
+
+  // Migration: add section column if missing (for existing databases)
+  const cols = db.prepare(`PRAGMA table_info(store_collections)`).all() as { name: string }[];
+  if (!cols.some(c => c.name === 'section')) {
+    db.exec(`ALTER TABLE store_collections ADD COLUMN section TEXT`);
+  }
 
   // Store config — key-value metadata (e.g. config_hash for sync optimization)
   db.exec(`
@@ -889,6 +961,7 @@ type StoreCollectionRow = {
   include_by_default: number;
   update_command: string | null;
   context: string | null;
+  section: string | null;
 };
 
 function rowToNamedCollection(row: StoreCollectionRow): NamedCollection {
@@ -900,6 +973,7 @@ function rowToNamedCollection(row: StoreCollectionRow): NamedCollection {
     ...(row.include_by_default === 0 ? { includeByDefault: false } : {}),
     ...(row.update_command ? { update: row.update_command } : {}),
     ...(row.context ? { context: JSON.parse(row.context) as ContextMap } : {}),
+    ...(row.section ? { section: JSON.parse(row.section) as SectionFilter } : {}),
   };
 }
 
@@ -943,15 +1017,16 @@ export function getStoreContexts(db: Database): Array<{ collection: string; path
 
 export function upsertStoreCollection(db: Database, name: string, collection: Omit<Collection, 'pattern'> & { pattern?: string }): void {
   db.prepare(`
-    INSERT INTO store_collections (name, path, pattern, ignore_patterns, include_by_default, update_command, context)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO store_collections (name, path, pattern, ignore_patterns, include_by_default, update_command, context, section)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
       path = excluded.path,
       pattern = excluded.pattern,
       ignore_patterns = excluded.ignore_patterns,
       include_by_default = excluded.include_by_default,
       update_command = excluded.update_command,
-      context = excluded.context
+      context = excluded.context,
+      section = excluded.section
   `).run(
     name,
     collection.path,
@@ -960,6 +1035,7 @@ export function upsertStoreCollection(db: Database, name: string, collection: Om
     collection.includeByDefault === false ? 0 : 1,
     collection.update || null,
     collection.context ? JSON.stringify(collection.context) : null,
+    collection.section ? JSON.stringify(collection.section) : null,
   );
 }
 
@@ -1187,6 +1263,7 @@ export async function reindexCollection(
   collectionName: string,
   options?: {
     ignorePatterns?: string[];
+    section?: SectionFilter;
     onProgress?: (info: ReindexProgress) => void;
   }
 ): Promise<ReindexResult> {
@@ -1232,6 +1309,18 @@ export async function reindexCollection(
     if (!content.trim()) {
       processed++;
       continue;
+    }
+
+    // Apply section filtering if configured
+    if (options?.section) {
+      const sectionContent = extractSectionByHeading(content, options.section);
+      if (sectionContent === null) {
+        // Heading not found — skip this document
+        processed++;
+        options?.onProgress?.({ file: relativeFile, current: processed, total });
+        continue;
+      }
+      content = sectionContent;
     }
 
     const hash = await hashContent(content);
