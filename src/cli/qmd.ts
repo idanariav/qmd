@@ -461,10 +461,10 @@ async function showStatus(): Promise<void> {
   }
 
   // Device / GPU info
+  console.log(`\n${c.bold}Device${c.reset}`);
   try {
     const llm = getDefaultLlamaCpp();
-    const device = await llm.getDeviceInfo();
-    console.log(`\n${c.bold}Device${c.reset}`);
+    const device = await llm.getDeviceInfo({ allowBuild: false });
     if (device.gpu) {
       console.log(`  GPU:      ${c.green}${device.gpu}${c.reset} (offloading: ${device.gpuOffloading ? 'yes' : 'no'})`);
       if (device.gpuDevices.length > 0) {
@@ -486,8 +486,11 @@ async function showStatus(): Promise<void> {
       console.log(`  ${c.dim}Tip: Install CUDA, Vulkan, or Metal support for GPU acceleration.${c.reset}`);
     }
     console.log(`  CPU:      ${device.cpuCores} math cores`);
-  } catch {
-    // Don't fail status if LLM init fails
+  } catch (error) {
+    console.log(`  Status:   ${c.dim}skipped${c.reset} (status probe does not build llama.cpp backends)`);
+    if (error instanceof Error && error.message) {
+      console.log(`  ${c.dim}${error.message}${c.reset}`);
+    }
   }
 
   // Tips section

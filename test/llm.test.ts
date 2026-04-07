@@ -193,6 +193,32 @@ describe("LlamaCpp rerank deduping", () => {
   });
 });
 
+describe("LlamaCpp.getDeviceInfo", () => {
+  test("can skip build attempts for status probes", async () => {
+    const llm = new LlamaCpp({}) as any;
+    const fakeLlama = {
+      gpu: "metal",
+      supportsGpuOffloading: true,
+      cpuMathCores: 8,
+      getGpuDeviceNames: vi.fn().mockResolvedValue(["Apple GPU"]),
+      getVramState: vi.fn().mockResolvedValue({ total: 1024, used: 256, free: 768 }),
+    };
+
+    llm.ensureLlama = vi.fn().mockResolvedValue(fakeLlama);
+
+    const device = await llm.getDeviceInfo({ allowBuild: false });
+
+    expect(llm.ensureLlama).toHaveBeenCalledWith(false);
+    expect(device).toEqual({
+      gpu: "metal",
+      gpuOffloading: true,
+      gpuDevices: ["Apple GPU"],
+      vram: { total: 1024, used: 256, free: 768 },
+      cpuCores: 8,
+    });
+  });
+});
+
 // =============================================================================
 // Integration Tests (require actual models)
 // =============================================================================
