@@ -19,6 +19,7 @@ import {
   createStore,
   verifySqliteVecLoaded,
   getDefaultDbPath,
+  _resetProductionModeForTesting,
   homedir,
   resolve,
   getPwd,
@@ -277,9 +278,12 @@ afterAll(async () => {
 
 describe("Store Creation", () => {
   test("createStore throws without explicit path in test mode", () => {
-    // In test mode, createStore without path should throw to prevent accidental writes
+    // In test mode, createStore without path should throw to prevent accidental writes.
+    // Bun can run all test files in one process, so reset production mode in case
+    // another file imported the CLI or MCP server and enabled it.
     const originalIndexPath = process.env.INDEX_PATH;
     delete process.env.INDEX_PATH;
+    _resetProductionModeForTesting();
 
     expect(() => createStore()).toThrow("Database path not set");
 
@@ -374,6 +378,26 @@ describe("Document Helpers", () => {
     expect(extractTitle(content, "file.md")).toBe("My Title");
   });
 
+  test("extractTitle prefers YAML frontmatter title", () => {
+    const content = `---
+title: Frontmatter Title
+---
+
+# Heading Title
+`;
+    expect(extractTitle(content, "file.md")).toBe("Frontmatter Title");
+  });
+
+  test("extractTitle parses JSON frontmatter title", () => {
+    const content = `---json
+{"title":"JSON Frontmatter Title"}
+---
+
+# Heading Title
+`;
+    expect(extractTitle(content, "file.md")).toBe("JSON Frontmatter Title");
+  });
+
   test("extractTitle extracts H2 heading if no H1", () => {
     const content = "## My Subtitle\n\nSome content here.";
     expect(extractTitle(content, "file.md")).toBe("My Subtitle");
@@ -392,6 +416,17 @@ describe("Document Helpers", () => {
   test("extractTitle handles 📝 Notes heading", () => {
     const content = "# 📝 Notes\n\n## Meeting Summary\n\nContent";
     expect(extractTitle(content, "file.md")).toBe("Meeting Summary");
+  });
+
+  test("extractTitle ignores frontmatter when looking for markdown headings", () => {
+    const content = `---
+summary: |
+  # Not a title
+---
+
+# Actual Title
+`;
+    expect(extractTitle(content, "file.md")).toBe("Actual Title");
   });
 });
 
@@ -854,6 +889,41 @@ Final section content.
       expect(chunk.text.length).toBeGreaterThan(0);
       expect(chunk.pos).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  test("chunkDocument keeps frontmatter in its own chunk", () => {
+    const content = `---
+title: Frontmatter Title
+author: Example
+---
+
+# Heading
+
+${"Body paragraph. ".repeat(20)}`;
+    const bodyStart = content.indexOf("\n# Heading");
+    const chunks = chunkDocument(content, 40, 0, 10);
+
+    expect(bodyStart).toBeGreaterThan(0);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks[0]).toEqual({ text: content.slice(0, bodyStart), pos: 0 });
+    expect(chunks[1]!.pos).toBe(bodyStart);
+    expect(chunks[1]!.text.startsWith("\n# Heading")).toBe(true);
+  });
+
+  test("chunkDocument also separates TOML-style frontmatter", () => {
+    const content = `+++
+title = "Frontmatter Title"
++++
+
+# Heading
+
+${"Body paragraph. ".repeat(20)}`;
+    const bodyStart = content.indexOf("\n# Heading");
+    const chunks = chunkDocument(content, 40, 0, 10);
+
+    expect(bodyStart).toBeGreaterThan(0);
+    expect(chunks[0]).toEqual({ text: content.slice(0, bodyStart), pos: 0 });
+    expect(chunks[1]!.pos).toBe(bodyStart);
   });
 });
 
