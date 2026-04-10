@@ -19,7 +19,6 @@ import {
   createStore,
   verifySqliteVecLoaded,
   getDefaultDbPath,
-  _resetProductionModeForTesting,
   homedir,
   resolve,
   getPwd,
@@ -278,12 +277,9 @@ afterAll(async () => {
 
 describe("Store Creation", () => {
   test("createStore throws without explicit path in test mode", () => {
-    // In test mode, createStore without path should throw to prevent accidental writes.
-    // Bun can run all test files in one process, so reset production mode in case
-    // another file imported the CLI or MCP server and enabled it.
+    // In test mode, createStore without path should throw to prevent accidental writes
     const originalIndexPath = process.env.INDEX_PATH;
     delete process.env.INDEX_PATH;
-    _resetProductionModeForTesting();
 
     expect(() => createStore()).toThrow("Database path not set");
 
