@@ -3108,10 +3108,12 @@ if (isMain) {
         const maxDocsPerBatch = parseEmbedBatchOption("maxDocsPerBatch", cli.values["max-docs-per-batch"]);
         const maxBatchMb = parseEmbedBatchOption("maxBatchBytes", cli.values["max-batch-mb"]);
         const embedChunkStrategy = parseChunkStrategy(cli.values["chunk-strategy"]);
-        const embedCollectionOpt = cli.opts.collection;
-        const embedCollection = Array.isArray(embedCollectionOpt)
-          ? embedCollectionOpt[0]
-          : embedCollectionOpt;
+        // Validate -c against configured collections before dispatching, so a
+        // typo errors with "Collection not found: X" instead of silently
+        // reporting success because no pending docs match a nonexistent name.
+        // embed operates on a single collection; only the first value is used.
+        const embedValidatedCollections = resolveCollectionFilter(cli.opts.collection, false);
+        const embedCollection = embedValidatedCollections[0];
         await vectorIndex(DEFAULT_EMBED_MODEL_URI, !!cli.values.force, {
           maxDocsPerBatch,
           maxBatchBytes: maxBatchMb === undefined ? undefined : maxBatchMb * 1024 * 1024,
