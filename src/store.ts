@@ -699,7 +699,7 @@ function chunkDocumentCore(
 export function chunkDocumentWithBreakPoints(
   content: string,
   breakPoints: BreakPoint[],
-  codeFences: CodeFenceRegion[],
+  codeFences: ProtectedRegion[],
   maxChars: number = CHUNK_SIZE_CHARS,
   overlapChars: number = CHUNK_OVERLAP_CHARS,
   windowChars: number = CHUNK_WINDOW_CHARS
