@@ -32,8 +32,6 @@ import {
 import { getConfigPath } from "../collections.js";
 import { enableProductionMode } from "../store.js";
 
-enableProductionMode();
-
 // =============================================================================
 // Types for structured content
 // =============================================================================
@@ -665,6 +663,12 @@ status = "complete" AND modified > 2025-01-01
 // =============================================================================
 
 export async function startMcpServer(): Promise<void> {
+  // Opt into production mode when the MCP server is actually started, not
+  // when this module is merely imported for its exports. Importing the module
+  // at the top level flipped the global production flag and broke test
+  // isolation for downstream suites that expect the default (development)
+  // database path behaviour.
+  enableProductionMode();
   const configPath = getConfigPath();
   const store = await createStore({
     dbPath: getDefaultDbPath(),
@@ -690,6 +694,10 @@ export type HttpServerHandle = {
  * Binds to localhost only. Returns a handle for shutdown and port discovery.
  */
 export async function startMcpHttpServer(port: number, options?: { quiet?: boolean }): Promise<HttpServerHandle> {
+  // See startMcpServer() for the rationale — flip production mode here so the
+  // HTTP transport resolves the real database path, without leaking state into
+  // callers that only import this module for its exports (e.g. tests).
+  enableProductionMode();
   const configPath = getConfigPath();
   const store = await createStore({
     dbPath: getDefaultDbPath(),
