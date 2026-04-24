@@ -30,6 +30,7 @@
   and paired, so chunks no longer split inside nested code blocks that
   wrap shorter fences. Tilde fences are now supported.
 - GPU: respect explicit `QMD_LLAMA_GPU=metal|vulkan|cuda` backend overrides instead of always using auto GPU selection. #529
+- Chunking: detect leading frontmatter blocks and keep them together as their own chunk instead of splitting metadata across semantic chunks. Markdown title extraction now prefers frontmatter `title` before falling back to headings or filenames.
 - Fix: preserve original filename case in `handelize()`. The previous
   `.toLowerCase()` call made indexed paths unreachable on case-sensitive
   filesystems (Linux). `qmd update` automatically migrates legacy
