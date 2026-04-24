@@ -852,7 +852,16 @@ function contextRemove(pathArg: string): void {
   console.log(`${c.green}✓${c.reset} Removed context for: qmd://${detected.collectionName}/${detected.relativePath}`);
 }
 
-function getDocument(filename: string, fromLine?: number, maxLines?: number, lineNumbers?: boolean): void {
+interface GetDocumentOptions {
+  fromLine?: number;
+  maxLines?: number;
+  lineNumbers?: boolean;
+  section?: string;
+  stripCallouts?: boolean;
+}
+
+function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
+  let { fromLine, maxLines, lineNumbers, section, stripCallouts } = opts;
   // Parse :linenum suffix from filename (e.g., "file.md:100")
   let inputPath = filename;
   const colonMatch = inputPath.match(/:(\d+)$/);
@@ -1014,6 +1023,55 @@ function getDocument(filename: string, fromLine?: number, maxLines?: number, lin
   const context = getContextForPath(db, doc.collectionName, doc.path);
 
   let output = doc.body;
+
+  // If section is specified, extract it instead
+  if (section) {
+    const docId = (db.prepare(`
+      SELECT d.id FROM documents d
+      WHERE d.collection = ? AND d.path = ? AND d.active = 1
+    `).get(doc.collectionName, doc.path) as { id: number } | null)?.id;
+
+    if (!docId) {
+      console.error(`Document ID not found for: ${doc.collectionName}/${doc.path}`);
+      closeDb();
+      process.exit(1);
+    }
+
+    // Parse section path: "Heading" or "Parent/Child"
+    const sectionParts = section.split('/').map(s => s.trim()).filter(Boolean);
+    const targetHeading = sectionParts[sectionParts.length - 1];
+
+    // Query for the section by heading name
+    const sectionRow = (db.prepare(`
+      SELECT body, body_no_callouts, word_count, level, heading
+      FROM sections
+      WHERE doc_id = ? AND heading = ?
+      ORDER BY seq
+      LIMIT 1
+    `).get(docId, targetHeading) as { body: string; body_no_callouts: string; word_count: number; level: number; heading: string } | null);
+
+    if (!sectionRow) {
+      console.error(`Section not found: "${section}" in ${doc.path}`);
+      closeDb();
+      process.exit(1);
+    }
+
+    output = stripCallouts ? sectionRow.body_no_callouts : sectionRow.body;
+
+    // Print section header info
+    console.log(`# ${sectionRow.heading}`);
+    console.log(`Level: H${sectionRow.level}, Words: ${sectionRow.word_count}\n`);
+  } else if (stripCallouts) {
+    // Full document with callouts stripped
+    const sections = db.prepare(`
+      SELECT body_no_callouts FROM sections
+      WHERE doc_id = (SELECT id FROM documents WHERE collection = ? AND path = ? AND active = 1)
+      ORDER BY seq
+    `).all(doc.collectionName, doc.path) as { body_no_callouts: string }[];
+
+    output = sections.map(s => s.body_no_callouts).join('\n\n');
+  }
+
   const startLine = fromLine || 1;
 
   // Apply line filtering if specified
@@ -2596,6 +2654,8 @@ function parseCLI() {
       from: { type: "string" },  // start line
       "max-bytes": { type: "string" },  // max bytes for multi-get
       "line-numbers": { type: "boolean" },  // add line numbers to output
+      "no-callouts": { type: "boolean" },  // strip callouts from output
+      section: { type: "string" },  // section heading path
       // Query options
       "candidate-limit": { type: "string", short: "C" },
       "no-rerank": { type: "boolean", default: false },
@@ -2793,7 +2853,7 @@ function showHelp(): void {
   console.log("  qmd tsearch <query>           - Full-text BM25 keywords (no LLM)");
   console.log("  qmd vsearch <query>           - Vector similarity only");
   console.log("  qmd fsearch <filter>          - Filter by frontmatter/tags/dates/sections (DSL, no LLM)");
-  console.log("  qmd get <file>[:line] [-l N]  - Show a single document, optional line slice");
+  console.log("  qmd get <file> [--section H]  - Show document, extract section, or strip callouts");
   console.log("  qmd multi-get <pattern>       - Batch fetch via glob or comma-separated list");
   console.log("  qmd mcp                       - Start the MCP server (stdio transport for AI agents)");
   console.log("  qmd bench <fixture.json>      - Run search quality benchmarks against a fixture file");
@@ -3018,12 +3078,15 @@ if (isMain) {
 
     case "get": {
       if (!cli.args[0]) {
-        console.error("Usage: qmd get <filepath>[:line] [--from <line>] [-l <lines>] [--line-numbers]");
+        console.error("Usage: qmd get <filepath> [--section 'Heading/Sub'] [--from <line>] [-l <lines>] [--line-numbers] [--no-callouts]");
         process.exit(1);
       }
+      const filePath = cli.args[0];
+      const section = cli.values.section as string | undefined;
       const fromLine = cli.values.from ? parseInt(cli.values.from as string, 10) : undefined;
       const maxLines = cli.values.l ? parseInt(cli.values.l as string, 10) : undefined;
-      getDocument(cli.args[0], fromLine, maxLines, cli.opts.lineNumbers);
+      const stripCallouts = Boolean(cli.values["no-callouts"]);
+      getDocument(filePath, { fromLine, maxLines, lineNumbers: cli.opts.lineNumbers, section, stripCallouts });
       break;
     }
 
