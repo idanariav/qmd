@@ -1,5 +1,5 @@
 {
-  "name": "@tobilu/qmd",
+  "name": "@idan_ariav/qmd",
   "version": "2.1.0",
   "description": "Query Markup Documents - On-device hybrid search for markdown files with BM25, vector search, and LLM reranking",
   "type": "module",
@@ -38,11 +38,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tobi/qmd.git"
+    "url": "git+https://github.com/idanariav/qmd.git"
   },
-  "homepage": "https://github.com/tobi/qmd#readme",
+  "homepage": "https://github.com/idanariav/qmd#readme",
   "bugs": {
-    "url": "https://github.com/tobi/qmd/issues"
+    "url": "https://github.com/idanariav/qmd/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -112,6 +112,6 @@
     "local-ai",
     "llm"
   ],
-  "author": "Tobi Lutke <tobi@lutke.com>",
+  "author": "Idan Ariav",
   "license": "MIT"
 }
