@@ -17,7 +17,7 @@ qmd context rm <path>             # Remove context
 qmd get <file>                    # Get document by path or docid (#abc123)
 qmd multi-get <pattern>           # Get multiple docs by glob or comma-separated list
 qmd status                        # Show index status and collections
-qmd update [--pull]               # Re-index all collections (--pull: git pull first)
+qmd index [--pull]                # Re-index all collections (--pull: git pull first)
 qmd embed                         # Generate vector embeddings (uses node-llama-cpp)
 qmd hsearch <query>               # Search with query expansion + reranking (recommended)
 qmd tsearch <query>               # Full-text keyword search (BM25, no LLM)
@@ -143,7 +143,7 @@ bun test --preload ./src/test-preload.ts test/
 
 ## Important: Do NOT run automatically
 
-- Never run `qmd collection add`, `qmd embed`, or `qmd update` automatically
+- Never run `qmd collection add`, `qmd embed`, or `qmd index` automatically
 - Never modify the SQLite database directly
 - Write out example commands for the user to run manually
 - Index is stored at `~/.cache/qmd/index.sqlite`

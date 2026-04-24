@@ -270,7 +270,7 @@ function checkIndexHealth(db: Database): void {
 
   // Check if most recent document update is older than 2 weeks
   if (daysStale !== null && daysStale >= 14) {
-    process.stderr.write(`${c.dim}Tip: Index last updated ${daysStale} days ago. Run 'qmd update' to refresh.${c.reset}\n`);
+    process.stderr.write(`${c.dim}Tip: Index last updated ${daysStale} days ago. Run 'qmd index' to refresh.${c.reset}\n`);
   }
 }
 
@@ -1472,7 +1472,7 @@ async function collectionAdd(pwd: string, globPattern: string, name?: string, se
     console.error(`${c.yellow}A collection already exists for this path and pattern:${c.reset}`);
     console.error(`  Name: ${existingPwdGlob.name} (qmd://${existingPwdGlob.name}/)`);
     console.error(`  Pattern: ${globPattern}`);
-    console.error(`\nUse 'qmd update' to re-index it, or remove it first with 'qmd collection remove ${existingPwdGlob.name}'`);
+    console.error(`\nUse 'qmd index' to re-index it, or remove it first with 'qmd collection remove ${existingPwdGlob.name}'`);
     process.exit(1);
   }
 
@@ -2795,18 +2795,17 @@ function showHelp(): void {
   console.log("  qmd fsearch <filter>          - Filter by frontmatter/tags/dates/sections (DSL, no LLM)");
   console.log("  qmd get <file>[:line] [-l N]  - Show a single document, optional line slice");
   console.log("  qmd multi-get <pattern>       - Batch fetch via glob or comma-separated list");
-  console.log("  qmd skill show/install        - Show or install the packaged QMD skill");
   console.log("  qmd mcp                       - Start the MCP server (stdio transport for AI agents)");
   console.log("  qmd bench <fixture.json>      - Run search quality benchmarks against a fixture file");
   console.log("");
   console.log("Collections & context:");
-  console.log("  qmd collection add/list/remove/rename/show   - Manage indexed folders");
+  console.log("  qmd collection add/list/remove/rename/show   - Manage indexed folders (show: view collection config)");
   console.log("  qmd context add/list/rm                      - Attach human-written summaries");
   console.log("  qmd ls [collection[/path]]                   - Inspect indexed files");
   console.log("");
   console.log("Maintenance:");
   console.log("  qmd status                    - View index + collection health");
-  console.log("  qmd update [--pull]           - Re-index collections (optionally git pull first)");
+  console.log("  qmd index [--pull]            - Re-index collections (optionally git pull first)");
   console.log("  qmd embed [-f]                - Generate/refresh vector embeddings");
   console.log("    --max-docs-per-batch <n>    - Cap docs loaded into memory per embedding batch");
   console.log("    --max-batch-mb <n>          - Cap UTF-8 MB loaded into memory per embedding batch");
@@ -2815,7 +2814,7 @@ function showHelp(): void {
   console.log("Query syntax (qmd hsearch):");
   console.log("  QMD queries are either a single expand query (no prefix) or a multi-line");
   console.log("  document where every line is typed with lex:, vec:, or hyde:. This grammar");
-  console.log("  matches the docs in docs/SYNTAX.md and is enforced in the CLI.");
+  console.log("  is enforced in the CLI.");
   console.log("");
   const grammar = [
     `query          = expand_query | query_document ;`,
@@ -2848,10 +2847,9 @@ function showHelp(): void {
   console.log("");
   console.log("AI agents & integrations:");
   console.log("  - Run `qmd mcp` to expose the MCP server (stdio) to agents/IDEs.");
-  console.log("  - `qmd skill install` installs the QMD skill into ./.agents/skills/qmd.");
-  console.log("  - Use `qmd skill install --global` for ~/.agents/skills/qmd.");
-  console.log("  - `qmd --skill` is kept as an alias for `qmd skill show`.");
-  console.log("  - Advanced: `qmd mcp --http ...` and `qmd mcp --http --daemon` are optional for custom transports.");
+  console.log("  - `qmd mcp --http [--port N]` starts an HTTP server (default port 8181).");
+  console.log("  - `qmd mcp --http --daemon` runs the HTTP server in background.");
+  console.log("  - `qmd mcp stop` stops the background daemon.");
   console.log("");
   console.log("Global options:");
   console.log("  --index <name>             - Use a named index (default: index)");
@@ -3204,7 +3202,7 @@ if (isMain) {
       await showStatus();
       break;
 
-    case "update":
+    case "index":
       await updateCollections();
       break;
 

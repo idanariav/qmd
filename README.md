@@ -126,6 +126,7 @@ Collections are indexed folders. You can have multiple collections for different
 qmd collection add <path> --name <name>   # Register a folder
 qmd collection add <path> --name <name> --mask "**/*.md"  # Custom glob
 qmd collection list                        # Show all collections with stats
+qmd collection show <name>                # View collection configuration
 qmd collection remove <name>              # Remove a collection
 qmd collection rename <old> <new>         # Rename a collection
 qmd ls <name>                             # List files in a collection
@@ -148,12 +149,15 @@ qmd context rm qmd://notes/old                   # Remove a context
 ### Indexing and embeddings
 
 ```sh
-qmd update              # Re-index all collections (scan filesystem for changes)
-qmd update --pull       # Git pull first, then re-index
+qmd index               # Re-index all collections (scan filesystem for changes)
+qmd index --pull        # Git pull first, then re-index
 qmd embed               # Generate vector embeddings for semantic search
 qmd embed -f            # Force re-embed all documents
 qmd embed --chunk-strategy auto  # AST-aware chunking for code files
+qmd embed --max-docs-per-batch <n>  # Cap docs per batch (memory control)
+qmd embed --max-batch-mb <n>    # Cap UTF-8 MB per batch
 qmd status              # Show index health, collection stats, pending embeddings
+qmd cleanup             # Clear caches, remove orphaned data, vacuum database
 ```
 
 ### Search commands
@@ -167,6 +171,8 @@ qmd hsearch "how does authentication work"
 qmd hsearch "error handling best practices" -c docs -n 10
 qmd hsearch "API rate limiting" --min-score 0.4 --all --files
 qmd hsearch --json --explain "quarterly planning"   # include score traces
+qmd hsearch --intent "web performance" "page load times"  # disambiguate query
+qmd hsearch --no-rerank --candidate-limit 20 "query"  # fast mode
 qmd hsearch $'lex: auth token\nvec: how users log in'   # structured sub-queries
 ```
 
@@ -178,8 +184,10 @@ qmd hsearch $'lex: auth token\nvec: how users log in'   # structured sub-queries
 | `--min-score <num>` | Minimum relevance score (0.0–1.0) |
 | `--full` | Include full document body in output |
 | `--explain` | Show per-result RRF + rerank score breakdown |
-| `--no-rerank` | Skip LLM reranking, use RRF scores only (faster) |
-| `--intent <text>` | Domain hint to improve query expansion |
+| `--no-rerank` | Skip LLM reranking, use RRF scores only (faster on CPU) |
+| `-C, --candidate-limit <n>` | Max candidates to rerank (default: 40, lower = faster) |
+| `--intent <text>` | Domain hint to improve query expansion and disambiguate results |
+| `--line-numbers` | Include line numbers in output |
 | `--json` / `--csv` / `--md` / `--xml` / `--files` | Output format |
 
 #### `tsearch` — Text search
@@ -222,11 +230,35 @@ qmd vsearch "startup fundraising strategy" --min-score 0.3
 DSL-based structured filter. Matches documents by frontmatter fields, tags, headings, dates, or word count — without any LLM.
 
 ```sh
+# Find recent work by tag
 qmd fsearch 'tag=productivity AND modified > 30d'
+
+# Find incomplete notes
 qmd fsearch 'section ~= "Summary" AND missing:status'
+
+# Find substantive papers in a collection
 qmd fsearch 'collection=research_papers AND word_count > 1000'
+
+# Find non-draft work from the past year
 qmd fsearch 'NOT (tag=draft) AND created > 2025-01-01'
+
+# Find complete items and export as JSON
 qmd fsearch 'status = "complete" AND modified > 2025-01-01' --json
+
+# Find stale drafts (over 3 months old)
+qmd fsearch 'tag=draft AND modified < 3m'
+
+# Find notes created in a specific month
+qmd fsearch 'created > 2025-02-01 AND created < 2025-03-01'
+
+# Find long-form content with specific section headings
+qmd fsearch 'word_count > 2000 AND section ~= "Lessons Learned"'
+
+# Find items matching a title pattern (Q1, Q2, etc.)
+qmd fsearch 'title ~/^Q[0-9]/' -c work
+
+# Find documents with empty or missing status field
+qmd fsearch 'empty:status OR missing:status' -c tasks
 ```
 
 **DSL syntax:**
@@ -252,6 +284,16 @@ qmd fsearch 'status = "complete" AND modified > 2025-01-01' --json
 | `-n <num>` | Max results (default: 50) |
 | `--all` | Return all matches |
 | `--json` / `--csv` / `--md` / `--files` | Output format |
+
+### Benchmarking
+
+#### `bench` — Search quality evaluation
+
+```sh
+qmd bench queries.json              # Run benchmark against a fixture file
+```
+
+Used to evaluate search quality by running a set of test queries against your index and measuring relevance. Fixture files should contain queries and expected results in JSON format.
 
 ### Document retrieval
 
