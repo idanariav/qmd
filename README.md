@@ -2,6 +2,8 @@
 
 An on-device search engine for your markdown knowledge base. Index notes, meeting transcripts, research papers, and documentation. Search with keywords, natural language, or structured metadata filters — all running locally, nothing leaves your machine.
 
+based on https://github.com/tobi/qmd
+
 ---
 
 ## Quick Start
