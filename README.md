@@ -58,6 +58,9 @@ qmd get "notes/meeting-2025-01-15.md"
 
 # Get a document by its short ID (shown in search results)
 qmd get "#abc123"
+
+# Extract a specific section and strip callouts
+qmd get "guides/setup.md" --section "Installation" --no-callouts
 ```
 
 ---
@@ -306,7 +309,18 @@ qmd get "notes/meeting.md:50"             # start at line 50
 qmd get "notes/meeting.md" -l 100         # max 100 lines
 qmd get "notes/meeting.md" --from 50 -l 100
 qmd get "notes/meeting.md" --line-numbers
+qmd get "notes/guide.md" --section "Installation"  # extract specific section
+qmd get "notes/guide.md" --section "Examples" --no-callouts  # section without callouts
+qmd get "notes/guide.md" --no-callouts    # full document without callout blocks
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--section <heading>` | Extract a specific section by heading name; supports nested headings (e.g., `"Parent/Child"`) |
+| `--no-callouts` | Strip Obsidian callout blocks (`> [!NOTE]`, `> [!WARNING]`, etc.) |
+| `--from <line>` | Start at line number |
+| `-l <num>` | Max lines to return |
+| `--line-numbers` | Include line numbers in output |
 
 #### `multi-get` — Retrieve multiple documents
 
