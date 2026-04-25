@@ -1198,6 +1198,7 @@ function initializeDatabase(db: Database): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       collection TEXT NOT NULL,
       path TEXT NOT NULL,
+      original_path TEXT,
       title TEXT NOT NULL,
       hash TEXT NOT NULL,
       created_at TEXT NOT NULL,
@@ -1211,6 +1212,14 @@ function initializeDatabase(db: Database): void {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_collection ON documents(collection, active)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(hash)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(path, active)`);
+
+  // Migration: add original_path for existing databases
+  {
+    const cols = (db.prepare(`PRAGMA table_info(documents)`).all() as { name: string }[]).map(c => c.name);
+    if (!cols.includes('original_path')) {
+      db.exec(`ALTER TABLE documents ADD COLUMN original_path TEXT`);
+    }
+  }
 
   // Cache table for LLM API calls
   db.exec(`
@@ -1666,11 +1675,11 @@ export type Store = {
 
   // Document indexing operations
   insertContent: (hash: string, content: string, createdAt: string) => void;
-  insertDocument: (collectionName: string, path: string, title: string, hash: string, createdAt: string, modifiedAt: string) => void;
+  insertDocument: (collectionName: string, path: string, title: string, hash: string, createdAt: string, modifiedAt: string, originalPath?: string | null) => void;
   findActiveDocument: (collectionName: string, path: string) => { id: number; hash: string; title: string } | null;
   findOrMigrateLegacyDocument: (collectionName: string, path: string) => { id: number; hash: string; title: string } | null;
-  updateDocumentTitle: (documentId: number, title: string, modifiedAt: string) => void;
-  updateDocument: (documentId: number, title: string, hash: string, modifiedAt: string) => void;
+  updateDocumentTitle: (documentId: number, title: string, modifiedAt: string, originalPath?: string | null) => void;
+  updateDocument: (documentId: number, title: string, hash: string, modifiedAt: string, originalPath?: string | null) => void;
   deactivateDocument: (collectionName: string, path: string) => void;
   getActiveDocumentPaths: (collectionName: string) => string[];
 
@@ -1782,22 +1791,25 @@ export async function reindexCollection(
     if (existing) {
       if (existing.hash === hash) {
         if (existing.title !== title) {
-          updateDocumentTitle(db, existing.id, title, modifiedAt);
+          updateDocumentTitle(db, existing.id, title, modifiedAt, relativeFile);
           updated++;
         } else {
+          // Ensure original_path is populated even when nothing else changed
+          db.prepare(`UPDATE documents SET original_path = COALESCE(?, original_path) WHERE id = ?`)
+            .run(relativeFile, existing.id);
           unchanged++;
         }
         upsertDocumentMetadata(db, existing.id, fm, structure);
       } else {
         insertContent(db, hash, content, now);
-        updateDocument(db, existing.id, title, hash, modifiedAt);
+        updateDocument(db, existing.id, title, hash, modifiedAt, relativeFile);
         upsertDocumentMetadata(db, existing.id, fm, structure);
         updated++;
       }
     } else {
       indexed++;
       insertContent(db, hash, content, now);
-      insertDocument(db, collectionName, path, title, hash, createdAt, modifiedAt);
+      insertDocument(db, collectionName, path, title, hash, createdAt, modifiedAt, relativeFile);
       const inserted = findActiveDocument(db, collectionName, path);
       if (inserted) upsertDocumentMetadata(db, inserted.id, fm, structure);
     }
@@ -2726,17 +2738,19 @@ export function insertDocument(
   title: string,
   hash: string,
   createdAt: string,
-  modifiedAt: string
+  modifiedAt: string,
+  originalPath?: string | null
 ): void {
   db.prepare(`
-    INSERT INTO documents (collection, path, title, hash, created_at, modified_at, active)
-    VALUES (?, ?, ?, ?, ?, ?, 1)
+    INSERT INTO documents (collection, path, original_path, title, hash, created_at, modified_at, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT(collection, path) DO UPDATE SET
+      original_path = excluded.original_path,
       title = excluded.title,
       hash = excluded.hash,
       modified_at = excluded.modified_at,
       active = 1
-  `).run(collectionName, path, title, hash, createdAt, modifiedAt);
+  `).run(collectionName, path, originalPath ?? null, title, hash, createdAt, modifiedAt);
 }
 
 /**
@@ -2812,10 +2826,11 @@ export function updateDocumentTitle(
   db: Database,
   documentId: number,
   title: string,
-  modifiedAt: string
+  modifiedAt: string,
+  originalPath?: string | null
 ): void {
-  db.prepare(`UPDATE documents SET title = ?, modified_at = ? WHERE id = ?`)
-    .run(title, modifiedAt, documentId);
+  db.prepare(`UPDATE documents SET title = ?, modified_at = ?, original_path = COALESCE(?, original_path) WHERE id = ?`)
+    .run(title, modifiedAt, originalPath ?? null, documentId);
 }
 
 /**
@@ -2827,10 +2842,11 @@ export function updateDocument(
   documentId: number,
   title: string,
   hash: string,
-  modifiedAt: string
+  modifiedAt: string,
+  originalPath?: string | null
 ): void {
-  db.prepare(`UPDATE documents SET title = ?, hash = ?, modified_at = ? WHERE id = ?`)
-    .run(title, hash, modifiedAt, documentId);
+  db.prepare(`UPDATE documents SET title = ?, hash = ?, modified_at = ?, original_path = COALESCE(?, original_path) WHERE id = ?`)
+    .run(title, hash, modifiedAt, originalPath ?? null, documentId);
 }
 
 /**
@@ -4379,6 +4395,27 @@ export function findDocument(db: Database, filename: string, options: { includeB
 }
 
 /**
+ * Read the original (unfiltered) file content from disk for a document.
+ * Returns null if original_path is not stored or the file cannot be read.
+ * Falls back gracefully so callers can use content.doc instead.
+ */
+export function resolveRawContent(
+  db: Database,
+  collectionName: string,
+  originalPath: string
+): string | null {
+  const coll = db.prepare(
+    `SELECT path FROM store_collections WHERE name = ?`
+  ).get(collectionName) as { path: string } | null;
+  if (!coll) return null;
+  try {
+    return readFileSync(`${coll.path}/${originalPath}`, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get the body content for a document
  * Optionally slice by line range
  */
@@ -4386,16 +4423,16 @@ export function getDocumentBody(db: Database, doc: DocumentResult | { filepath: 
   const filepath = doc.filepath;
 
   // Try to resolve document by filepath (absolute or virtual)
-  let row: { body: string } | null = null;
+  let row: { body: string; original_path: string | null; collection: string } | null = null;
 
   // Try virtual path first
   if (filepath.startsWith('qmd://')) {
     row = db.prepare(`
-      SELECT content.doc as body
+      SELECT content.doc as body, d.original_path, d.collection
       FROM documents d
       JOIN content ON content.hash = d.hash
       WHERE 'qmd://' || d.collection || '/' || d.path = ? AND d.active = 1
-    `).get(filepath) as { body: string } | null;
+    `).get(filepath) as { body: string; original_path: string | null; collection: string } | null;
   }
 
   // Try absolute path by looking up in DB store_collections
@@ -4405,11 +4442,11 @@ export function getDocumentBody(db: Database, doc: DocumentResult | { filepath: 
       if (filepath.startsWith(coll.path + '/')) {
         const relativePath = filepath.slice(coll.path.length + 1);
         row = db.prepare(`
-          SELECT content.doc as body
+          SELECT content.doc as body, d.original_path, d.collection
           FROM documents d
           JOIN content ON content.hash = d.hash
           WHERE d.collection = ? AND d.path = ? AND d.active = 1
-        `).get(coll.name, relativePath) as { body: string } | null;
+        `).get(coll.name, relativePath) as { body: string; original_path: string | null; collection: string } | null;
         if (row) break;
       }
     }
@@ -4417,7 +4454,13 @@ export function getDocumentBody(db: Database, doc: DocumentResult | { filepath: 
 
   if (!row) return null;
 
+  // Prefer reading the raw file from disk over the (possibly filtered) content.doc
   let body = row.body;
+  if (row.original_path) {
+    const raw = resolveRawContent(db, row.collection, row.original_path);
+    if (raw !== null) body = raw;
+  }
+
   if (fromLine !== undefined || maxLines !== undefined) {
     const lines = body.split('\n');
     const start = (fromLine || 1) - 1;

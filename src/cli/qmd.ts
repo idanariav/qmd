@@ -76,10 +76,14 @@ import {
   generateEmbeddings,
   syncConfigToDb,
   findByFilter,
+  extractSectionByHeading,
+  resolveRawContent,
   type FindResult,
   type ReindexResult,
   type ChunkStrategy,
 } from "../store.js";
+import { parseFrontmatter } from "../parse/frontmatter.js";
+import { parseStructure } from "../parse/structure.js";
 import { disposeDefaultLlamaCpp, getDefaultLlamaCpp, setDefaultLlamaCpp, LlamaCpp, withLLMSession, pullModels, DEFAULT_EMBED_MODEL_URI, DEFAULT_GENERATE_MODEL_URI, DEFAULT_RERANK_MODEL_URI, DEFAULT_MODEL_CACHE_DIR } from "../llm.js";
 import {
   formatSearchResults,
@@ -893,7 +897,7 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
       process.exit(1);
     }
   }
-  let doc: { collectionName: string; path: string; body: string } | null = null;
+  let doc: { collectionName: string; path: string; originalPath: string | null; body: string } | null = null;
   let virtualPath: string;
 
   // Handle virtual paths (qmd://collection/path)
@@ -907,7 +911,7 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
 
     // Try exact match on collection + path
     doc = db.prepare(`
-      SELECT d.collection as collectionName, d.path, content.doc as body
+      SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
       FROM documents d
       JOIN content ON content.hash = d.hash
       WHERE d.collection = ? AND d.path = ? AND d.active = 1
@@ -916,7 +920,7 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
     if (!doc) {
       // Try fuzzy match by path ending
       doc = db.prepare(`
-        SELECT d.collection as collectionName, d.path, content.doc as body
+        SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
         FROM documents d
         JOIN content ON content.hash = d.hash
         WHERE d.collection = ? AND d.path LIKE ? AND d.active = 1
@@ -942,21 +946,21 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
         if (collExists) {
           // Try exact match on collection + path
           doc = db.prepare(`
-            SELECT d.collection as collectionName, d.path, content.doc as body
+            SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
             FROM documents d
             JOIN content ON content.hash = d.hash
             WHERE d.collection = ? AND d.path = ? AND d.active = 1
-          `).get(possibleCollection || "", possiblePath || "") as { collectionName: string; path: string; body: string } | null;
+          `).get(possibleCollection || "", possiblePath || "") as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
 
           if (!doc) {
             // Try fuzzy match by path ending
             doc = db.prepare(`
-              SELECT d.collection as collectionName, d.path, content.doc as body
+              SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
               FROM documents d
               JOIN content ON content.hash = d.hash
               WHERE d.collection = ? AND d.path LIKE ? AND d.active = 1
               LIMIT 1
-            `).get(possibleCollection || "", `%${possiblePath}`) as { collectionName: string; path: string; body: string } | null;
+            `).get(possibleCollection || "", `%${possiblePath}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
           }
 
           if (doc) {
@@ -986,11 +990,11 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
       if (detected) {
         // Found collection - query by collection name + relative path
         doc = db.prepare(`
-          SELECT d.collection as collectionName, d.path, content.doc as body
+          SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
           FROM documents d
           JOIN content ON content.hash = d.hash
           WHERE d.collection = ? AND d.path = ? AND d.active = 1
-        `).get(detected.collectionName, detected.relativePath) as { collectionName: string; path: string; body: string } | null;
+        `).get(detected.collectionName, detected.relativePath) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
 
         // Also try handalized form in case original filename has spaces/special chars
         if (!doc) {
@@ -998,11 +1002,11 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
             const handelizedPath = handelize(detected.relativePath);
             if (handelizedPath !== detected.relativePath) {
               doc = db.prepare(`
-                SELECT d.collection as collectionName, d.path, content.doc as body
+                SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
                 FROM documents d
                 JOIN content ON content.hash = d.hash
                 WHERE d.collection = ? AND d.path = ? AND d.active = 1
-              `).get(detected.collectionName, handelizedPath) as { collectionName: string; path: string; body: string } | null;
+              `).get(detected.collectionName, handelizedPath) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
             }
           } catch {
             // handelize can throw on invalid paths; ignore and fall through
@@ -1014,12 +1018,12 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
       if (!doc) {
         const filename = inputPath.split('/').pop() || inputPath;
         doc = db.prepare(`
-          SELECT d.collection as collectionName, d.path, content.doc as body
+          SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
           FROM documents d
           JOIN content ON content.hash = d.hash
           WHERE d.path LIKE ? AND d.active = 1
           LIMIT 1
-        `).get(`%${filename}`) as { collectionName: string; path: string; body: string } | null;
+        `).get(`%${filename}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
 
         // Also try handalized form in case filename has spaces/special chars
         if (!doc) {
@@ -1027,12 +1031,12 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
             const handelizedFilename = handelize(filename);
             if (handelizedFilename !== filename) {
               doc = db.prepare(`
-                SELECT d.collection as collectionName, d.path, content.doc as body
+                SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
                 FROM documents d
                 JOIN content ON content.hash = d.hash
                 WHERE d.path LIKE ? AND d.active = 1
                 LIMIT 1
-              `).get(`%${handelizedFilename}`) as { collectionName: string; path: string; body: string } | null;
+              `).get(`%${handelizedFilename}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
             }
           } catch {
             // handelize can throw on invalid paths; ignore
@@ -1058,54 +1062,48 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
   // Get context for this file
   const context = getContextForPath(db, doc.collectionName, doc.path);
 
-  let output = doc.body;
+  // Prefer the raw file on disk over the (possibly section-filtered) indexed content
+  const rawContent = doc.originalPath
+    ? (resolveRawContent(db, doc.collectionName, doc.originalPath) ?? doc.body)
+    : doc.body;
+  const fm = parseFrontmatter(rawContent);
 
-  // If section is specified, extract it instead
+  let output = rawContent;
+
+  // If section is specified, extract it from the raw file content
   if (section) {
-    const docId = (db.prepare(`
-      SELECT d.id FROM documents d
-      WHERE d.collection = ? AND d.path = ? AND d.active = 1
-    `).get(doc.collectionName, doc.path) as { id: number } | null)?.id;
-
-    if (!docId) {
-      console.error(`Document ID not found for: ${doc.collectionName}/${doc.path}`);
-      closeDb();
-      process.exit(1);
-    }
-
-    // Parse section path: "Heading" or "Parent/Child"
     const sectionParts = section.split('/').map(s => s.trim()).filter(Boolean);
-    const targetHeading = sectionParts[sectionParts.length - 1];
+    const targetHeading = sectionParts[sectionParts.length - 1] ?? section;
 
-    // Query for the section by heading name
-    const sectionRow = (db.prepare(`
-      SELECT body, body_no_callouts, word_count, level, heading
-      FROM sections
-      WHERE doc_id = ? AND heading = ?
-      ORDER BY seq
-      LIMIT 1
-    `).get(docId, targetHeading) as { body: string; body_no_callouts: string; word_count: number; level: number; heading: string } | null);
+    // Find the heading and its level in the parsed structure
+    const structure = parseStructure(fm.body);
+    const matched = structure.sections.find(s => s.heading === targetHeading);
 
-    if (!sectionRow) {
+    if (!matched) {
       console.error(`Section not found: "${section}" in ${doc.path}`);
       closeDb();
       process.exit(1);
     }
 
-    output = stripCallouts ? sectionRow.body_no_callouts : sectionRow.body;
+    // Extract full subtree (the heading's content + all child sections)
+    const sectionContent = extractSectionByHeading(fm.body, {
+      heading: targetHeading,
+      level: matched.level,
+    })!;
 
-    // Print section header info
-    console.log(`# ${sectionRow.heading}`);
-    console.log(`Level: H${sectionRow.level}, Words: ${sectionRow.word_count}\n`);
+    if (stripCallouts) {
+      const sec = parseStructure(sectionContent);
+      output = sec.sections.map(s => s.body_no_callouts).join('\n\n');
+    } else {
+      output = sectionContent;
+    }
+
+    console.log(`# ${matched.heading}`);
+    console.log(`Level: H${matched.level}\n`);
   } else if (stripCallouts) {
     // Full document with callouts stripped
-    const sections = db.prepare(`
-      SELECT body_no_callouts FROM sections
-      WHERE doc_id = (SELECT id FROM documents WHERE collection = ? AND path = ? AND active = 1)
-      ORDER BY seq
-    `).all(doc.collectionName, doc.path) as { body_no_callouts: string }[];
-
-    output = sections.map(s => s.body_no_callouts).join('\n\n');
+    const structure = parseStructure(fm.body);
+    output = structure.sections.map(s => s.body_no_callouts).join('\n\n');
   }
 
   // Strip fenced code blocks if requested
