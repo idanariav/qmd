@@ -61,6 +61,9 @@ qmd get "#abc123"
 
 # Extract a specific section and strip callouts
 qmd get "guides/setup.md" --section "Installation" --no-callouts
+
+# Get a document without code blocks (prose only)
+qmd get "guides/setup.md" --no-codeblocks
 ```
 
 ---
@@ -312,12 +315,14 @@ qmd get "notes/meeting.md" --line-numbers
 qmd get "notes/guide.md" --section "Installation"  # extract specific section
 qmd get "notes/guide.md" --section "Examples" --no-callouts  # section without callouts
 qmd get "notes/guide.md" --no-callouts    # full document without callout blocks
+qmd get "notes/guide.md" --no-codeblocks  # full document without fenced code blocks
 ```
 
 | Option | Description |
 |--------|-------------|
 | `--section <heading>` | Extract a specific section by heading name; supports nested headings (e.g., `"Parent/Child"`) |
 | `--no-callouts` | Strip Obsidian callout blocks (`> [!NOTE]`, `> [!WARNING]`, etc.) |
+| `--no-codeblocks` | Strip fenced code blocks (` ``` ` ... ` ``` `) from output |
 | `--from <line>` | Start at line number |
 | `-l <num>` | Max lines to return |
 | `--line-numbers` | Include line numbers in output |

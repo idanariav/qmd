@@ -858,10 +858,11 @@ interface GetDocumentOptions {
   lineNumbers?: boolean;
   section?: string;
   stripCallouts?: boolean;
+  noCodeblocks?: boolean;
 }
 
 function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
-  let { fromLine, maxLines, lineNumbers, section, stripCallouts } = opts;
+  let { fromLine, maxLines, lineNumbers, section, stripCallouts, noCodeblocks } = opts;
   // Parse :linenum suffix from filename (e.g., "file.md:100")
   let inputPath = filename;
   const colonMatch = inputPath.match(/:(\d+)$/);
@@ -1070,6 +1071,11 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
     `).all(doc.collectionName, doc.path) as { body_no_callouts: string }[];
 
     output = sections.map(s => s.body_no_callouts).join('\n\n');
+  }
+
+  // Strip fenced code blocks if requested
+  if (noCodeblocks) {
+    output = output.replace(/^```[\s\S]*?^```\s*$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
   }
 
   const startLine = fromLine || 1;
@@ -2655,6 +2661,7 @@ function parseCLI() {
       "max-bytes": { type: "string" },  // max bytes for multi-get
       "line-numbers": { type: "boolean" },  // add line numbers to output
       "no-callouts": { type: "boolean" },  // strip callouts from output
+      "no-codeblocks": { type: "boolean" },  // strip fenced code blocks from output
       section: { type: "string" },  // section heading path
       // Query options
       "candidate-limit": { type: "string", short: "C" },
@@ -2853,7 +2860,7 @@ function showHelp(): void {
   console.log("  qmd tsearch <query>           - Full-text BM25 keywords (no LLM)");
   console.log("  qmd vsearch <query>           - Vector similarity only");
   console.log("  qmd fsearch <filter>          - Filter by frontmatter/tags/dates/sections (DSL, no LLM)");
-  console.log("  qmd get <file> [--section H]  - Show document, extract section, or strip callouts");
+  console.log("  qmd get <file> [--section H]  - Show document, extract section, or strip callouts/codeblocks");
   console.log("  qmd multi-get <pattern>       - Batch fetch via glob or comma-separated list");
   console.log("  qmd mcp                       - Start the MCP server (stdio transport for AI agents)");
   console.log("  qmd bench <fixture.json>      - Run search quality benchmarks against a fixture file");
@@ -2926,6 +2933,13 @@ function showHelp(): void {
   console.log("  --explain                  - Include retrieval score traces (query --json/CLI)");
   console.log("  --files | --json | --csv | --md | --xml  - Output format");
   console.log("  -c, --collection <name>    - Filter by one or more collections");
+  console.log("");
+  console.log("Get options:");
+  console.log("  --section <heading>        - Extract a specific section by heading name (supports Parent/Child)");
+  console.log("  --from <line>              - Start at line number");
+  console.log("  -l <num>                   - Max lines to return");
+  console.log("  --no-callouts              - Strip Obsidian callout blocks (> [!NOTE], > [!WARNING], etc.)");
+  console.log("  --no-codeblocks            - Strip fenced code blocks (``` ... ```) from output");
   console.log("");
   console.log("Embed/query options:");
   console.log("  --chunk-strategy <auto|regex> - Chunking mode (default: regex; auto uses AST for code files)");
@@ -3078,7 +3092,7 @@ if (isMain) {
 
     case "get": {
       if (!cli.args[0]) {
-        console.error("Usage: qmd get <filepath> [--section 'Heading/Sub'] [--from <line>] [-l <lines>] [--line-numbers] [--no-callouts]");
+        console.error("Usage: qmd get <filepath> [--section 'Heading/Sub'] [--from <line>] [-l <lines>] [--line-numbers] [--no-callouts] [--no-codeblocks]");
         process.exit(1);
       }
       const filePath = cli.args[0];
@@ -3086,7 +3100,8 @@ if (isMain) {
       const fromLine = cli.values.from ? parseInt(cli.values.from as string, 10) : undefined;
       const maxLines = cli.values.l ? parseInt(cli.values.l as string, 10) : undefined;
       const stripCallouts = Boolean(cli.values["no-callouts"]);
-      getDocument(filePath, { fromLine, maxLines, lineNumbers: cli.opts.lineNumbers, section, stripCallouts });
+      const noCodeblocks = Boolean(cli.values["no-codeblocks"]);
+      getDocument(filePath, { fromLine, maxLines, lineNumbers: cli.opts.lineNumbers, section, stripCallouts, noCodeblocks });
       break;
     }
 
