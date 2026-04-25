@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "2025-12-07-bm25-q",
+      "name": "@idan_ariav/qmd",
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.29.0",
         "better-sqlite3": "12.8.0",
