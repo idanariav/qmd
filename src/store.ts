@@ -4332,6 +4332,24 @@ export function findDocument(db: Database, filename: string, options: { includeB
           JOIN content ON content.hash = d.hash
           WHERE d.collection = ? AND d.path = ? AND d.active = 1
         `).get(coll.name, relativePath) as DbDocRow | null;
+
+        // Also try handalized form in case the original filename has spaces/special chars
+        if (!doc) {
+          try {
+            const handelizedPath = handelize(relativePath);
+            if (handelizedPath !== relativePath) {
+              doc = db.prepare(`
+                SELECT ${selectCols}
+                FROM documents d
+                JOIN content ON content.hash = d.hash
+                WHERE d.collection = ? AND d.path = ? AND d.active = 1
+              `).get(coll.name, handelizedPath) as DbDocRow | null;
+            }
+          } catch {
+            // handelize can throw on invalid paths; ignore and continue
+          }
+        }
+
         if (doc) break;
       }
     }

@@ -991,6 +991,23 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
           JOIN content ON content.hash = d.hash
           WHERE d.collection = ? AND d.path = ? AND d.active = 1
         `).get(detected.collectionName, detected.relativePath) as { collectionName: string; path: string; body: string } | null;
+
+        // Also try handalized form in case original filename has spaces/special chars
+        if (!doc) {
+          try {
+            const handelizedPath = handelize(detected.relativePath);
+            if (handelizedPath !== detected.relativePath) {
+              doc = db.prepare(`
+                SELECT d.collection as collectionName, d.path, content.doc as body
+                FROM documents d
+                JOIN content ON content.hash = d.hash
+                WHERE d.collection = ? AND d.path = ? AND d.active = 1
+              `).get(detected.collectionName, handelizedPath) as { collectionName: string; path: string; body: string } | null;
+            }
+          } catch {
+            // handelize can throw on invalid paths; ignore and fall through
+          }
+        }
       }
 
       // Fuzzy match by filename (last component of path)
@@ -1003,6 +1020,24 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
           WHERE d.path LIKE ? AND d.active = 1
           LIMIT 1
         `).get(`%${filename}`) as { collectionName: string; path: string; body: string } | null;
+
+        // Also try handalized form in case filename has spaces/special chars
+        if (!doc) {
+          try {
+            const handelizedFilename = handelize(filename);
+            if (handelizedFilename !== filename) {
+              doc = db.prepare(`
+                SELECT d.collection as collectionName, d.path, content.doc as body
+                FROM documents d
+                JOIN content ON content.hash = d.hash
+                WHERE d.path LIKE ? AND d.active = 1
+                LIMIT 1
+              `).get(`%${handelizedFilename}`) as { collectionName: string; path: string; body: string } | null;
+            }
+          } catch {
+            // handelize can throw on invalid paths; ignore
+          }
+        }
       }
 
       if (doc) {
