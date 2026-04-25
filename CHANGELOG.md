@@ -2,26 +2,41 @@
 
 ## [Unreleased]
 
-### Changes
+## [2.2.0] - 2026-04-25
 
+`qmd get` now supports `--section` and `--no-callouts` for surgical
+document retrieval, chunking handles lists and XML agent-prompt tags
+cleanly, and a batch of embedding and CLI fixes rounds out the release.
+
+### Breaking Changes
+
+- **`qmd update` renamed to `qmd index`**. The `update` command has been
+  renamed to `index` for clarity — it re-indexes collections, not
+  updates data. Update any scripts or aliases that call `qmd update`.
+  Legacy lowercase paths are migrated automatically on first `qmd index`
+  run.
+
+### Added
+
+- `qmd get --section <Heading/Sub>` extracts a specific heading subtree
+  from a document, stopping at the next sibling heading. Heading paths
+  use `/` as a separator and match case-insensitively.
+- `qmd get --no-callouts` strips Obsidian-style callout blocks
+  (`> [!note]`, `> [!warning]`, etc.) from output. Combine with
+  `--section`, `--from`, `-l`, and `--line-numbers` freely.
 - List-aware chunking. A new scanner tracks nested list items with a
   stack-based state machine and emits weighted break points: top-level
   items score 70, second-level 45, third-level and deeper 25, and the
-  transition from a list back to prose scores 75. Previously the naive
-  `list: 5` and `numlist: 5` patterns produced break points too weak to
-  influence chunking. Long lists now split cleanly at item boundaries
-  instead of mid-item. Ordered `1)` form is newly supported, as is
-  proper detection of nested sublists (which the old regex missed).
+  transition from a list back to prose scores 75. Long lists now split
+  cleanly at item boundaries instead of mid-item. Ordered `1)` form is
+  newly supported, as is proper detection of nested sublists.
 - XML tag break points for agent-prompt markdown. The chunker now
   recognizes line-anchored paired tags like `<example>…</example>`,
   `<instructions>…</instructions>`, and `<thinking>…</thinking>` that
   commonly appear in agent instruction files, and prefers to split at
   the close of a tagged block (score 75) rather than mid-block. HTML5
-  element names (`<div>`, `<p>`, etc.) are blocked via a blocklist so
-  inline HTML in markdown is not confused for structural tags. Tags
-  inside code fences are ignored. Supports nested same-tag blocks,
-  namespaced tags (`<xsl:template>`), and custom elements
-  (`<my-widget>`).
+  element names (`<div>`, `<p>`, etc.) are excluded so inline HTML is
+  not confused for structural tags.
 
 ### Fixes
 
@@ -32,22 +47,20 @@
 - Embedding: `qmd embed -c <collection>` now actually filters by the
   requested collection. Previously the flag was accepted but ignored —
   `embed -c alpha` would embed every unembedded document across every
-  collection. `EmbedOptions.collection` (SDK) and the CLI `-c` flag now
-  thread a SQL filter through `getPendingEmbeddingDocs` and
-  `getHashesNeedingEmbedding`. When combined with `--force`,
-  `clearAllEmbeddings` is also scoped to that collection so sibling
-  collections' vectors are preserved. Because `content_vectors` is
-  keyed by a global content hash, hashes shared with active documents
-  in other collections are left in place rather than re-deleted.
-- GPU: respect explicit `QMD_LLAMA_GPU=metal|vulkan|cuda` backend overrides instead of always using auto GPU selection. #529
-- Chunking: detect leading frontmatter blocks and keep them together as their own chunk instead of splitting metadata across semantic chunks. Markdown title extraction now prefers frontmatter `title` before falling back to headings or filenames.
+  collection. When combined with `--force`, `clearAllEmbeddings` is
+  also scoped to that collection so sibling collections' vectors are
+  preserved.
+- GPU: respect explicit `QMD_LLAMA_GPU=metal|vulkan|cuda` backend
+  overrides instead of always using auto GPU selection. #529
+- Chunking: detect leading frontmatter blocks and keep them together as
+  their own chunk instead of splitting metadata across semantic chunks.
+  Markdown title extraction now prefers frontmatter `title` before
+  falling back to headings or filenames.
 - Fix: preserve original filename case in `handelize()`. The previous
-  `.toLowerCase()` call made indexed paths unreachable on case-sensitive
-  filesystems (Linux). `qmd update` automatically migrates legacy
-  lowercase paths without re-embedding.
-- CLI: make `qmd status` skip native `node-llama-cpp` device probing by
-  default so status stays safe on machines with broken or unsupported GPU
-  drivers. Set `QMD_STATUS_DEVICE_PROBE=1` to opt in.
+  `.toLowerCase()` call made indexed paths unreachable on
+  case-sensitive filesystems (Linux).
+- CLI: make `qmd status` skip native `node-llama-cpp` device probing
+  by default. Set `QMD_STATUS_DEVICE_PROBE=1` to opt in.
 
 ## [2.1.0] - 2026-04-05
 

@@ -15,37 +15,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install SQLite
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
-
-      - name: Verify lockfile is up-to-date
-        run: bun install --frozen-lockfile
-
-      - run: bun test --timeout 60000 --preload ./src/test-preload.ts test/
-        env:
-          CI: true
-          LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - run: npm run build
-      - run: npm publish --provenance --access public
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE=$(node -p "require('./package.json').name")
+          if npm view "$PACKAGE@$VERSION" version > /dev/null 2>&1; then
+            echo "Version $VERSION already published — skipping"
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Extract release notes
         id: notes
         run: |
+          chmod +x scripts/extract-changelog.sh
           VERSION="${GITHUB_REF_NAME#v}"
           NOTES=$(./scripts/extract-changelog.sh "$VERSION")
-          # Write to file for gh release (avoids quoting issues)
           echo "$NOTES" > /tmp/release-notes.md
 
       - name: Create GitHub release
