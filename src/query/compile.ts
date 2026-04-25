@@ -192,9 +192,10 @@ export function compileFilter(node: FilterNode): CompiledQuery {
 
 /**
  * Register a simple REGEXP UDF on a better-sqlite3 database.
- * Call this once after opening the DB.
+ * No-op under bun:sqlite which does not expose db.function().
  */
-export function registerRegexpUDF(db: { function: (name: string, fn: (...args: unknown[]) => unknown) => void }): void {
+export function registerRegexpUDF(db: { function?: (name: string, fn: (...args: unknown[]) => unknown) => void }): void {
+  if (typeof db.function !== "function") return;
   db.function("REGEXP", (pattern: unknown, value: unknown): number => {
     try {
       return new RegExp(String(pattern)).test(String(value ?? "")) ? 1 : 0;

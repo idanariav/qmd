@@ -115,7 +115,8 @@ function initTestDatabase(db: Database): void {
       ignore_patterns TEXT,
       include_by_default INTEGER DEFAULT 1,
       update_command TEXT,
-      context TEXT
+      context TEXT,
+      section TEXT
     )
   `);
 
