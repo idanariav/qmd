@@ -964,6 +964,24 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
             `).get(possibleCollection || "", `%${possiblePath}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
           }
 
+          // Also try handalized form in case path has spaces/special chars
+          if (!doc) {
+            try {
+              const handelizedPath = handelize(possiblePath);
+              if (handelizedPath !== possiblePath) {
+                doc = db.prepare(`
+                  SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
+                  FROM documents d
+                  JOIN content ON content.hash = d.hash
+                  WHERE d.collection = ? AND d.path LIKE ? AND d.active = 1
+                  LIMIT 1
+                `).get(possibleCollection || "", `%${handelizedPath}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
+              }
+            } catch {
+              // handelize can throw on invalid paths; ignore and fall through
+            }
+          }
+
           if (doc) {
             virtualPath = buildVirtualPath(doc.collectionName, doc.path);
             // Skip the filesystem path handling below
@@ -1049,6 +1067,40 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
         virtualPath = buildVirtualPath(doc.collectionName, doc.path);
       } else {
         virtualPath = inputPath;
+      }
+    }
+  }
+
+  // Last resort: file exists in a collection directory but wasn't indexed
+  // (e.g. skipped due to empty section filter). Scan collection roots on disk.
+  if (!doc) {
+    const allYamlCollections = yamlListCollections();
+    const searchFilename = inputPath.split('/').pop() || inputPath;
+    for (const coll of allYamlCollections) {
+      // Try the full input as a relative path within the collection root
+      const candidateFull = resolve(coll.path, inputPath);
+      if (existsSync(candidateFull)) {
+        const relPath = candidateFull.slice(coll.path.length + 1);
+        doc = {
+          collectionName: coll.name,
+          path: relPath,
+          originalPath: relPath,
+          body: readFileSync(candidateFull, 'utf-8'),
+        };
+        virtualPath = buildVirtualPath(coll.name, relPath);
+        break;
+      }
+      // Try just the filename within the collection root
+      const candidateByName = resolve(coll.path, searchFilename);
+      if (existsSync(candidateByName)) {
+        doc = {
+          collectionName: coll.name,
+          path: searchFilename,
+          originalPath: searchFilename,
+          body: readFileSync(candidateByName, 'utf-8'),
+        };
+        virtualPath = buildVirtualPath(coll.name, searchFilename);
+        break;
       }
     }
   }
