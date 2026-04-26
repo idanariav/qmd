@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-04-26
+
+`qmd get` gains `--raw` mode and `--skip-codeblocks`, search output is
+cleaner in quiet/machine modes, and a batch of fixes improves reliability
+across filename handling, snippet truncation, and section filtering.
+
+### Added
+
+- `qmd get --raw` reads the file directly from disk, bypassing the
+  collection's section filter so you always get the full document.
+- `qmd get --skip-codeblocks` omits fenced code blocks from output,
+  useful when piping prose to LLMs.
+- Search commands now suppress progress/spinner messages when stdout is
+  not a TTY or when `--quiet` / machine-output formats (`--json`,
+  `--csv`, `--xml`, `--files`) are requested.
+- Search CLI flags now accept camelCase variants (e.g. `--minScore`,
+  `--maxResults`) in addition to kebab-case forms.
+
+### Fixed
+
+- `qmd get` now correctly resolves documents whose filenames contain
+  spaces or other special characters.
+- Section headings are preserved when `--no-callouts` strips callout
+  blocks — previously the heading line was dropped along with the callout.
+- Files skipped by a collection's section filter are now findable via
+  `qmd get` even when the section does not match.
+- Snippet truncation no longer cuts mid-word; output truncates cleanly
+  at the nearest word boundary.
+- TypeScript: all remaining type errors resolved in CLI and library code.
+
 ## [2.2.0] - 2026-04-25
 
 `qmd get` now supports `--section` and `--no-callouts` for surgical
