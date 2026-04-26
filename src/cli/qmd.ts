@@ -2647,10 +2647,22 @@ function filterSearch(filterExpr: string, opts: OutputOptions): void {
   }
 }
 
+// Normalize camelCase long flags to kebab-case (e.g. --minScore → --min-score)
+function normalizeArgv(argv: string[]): string[] {
+  return argv.map(arg => {
+    if (!arg.startsWith('--')) return arg;
+    const eqIdx = arg.indexOf('=');
+    const flag = eqIdx === -1 ? arg.slice(2) : arg.slice(2, eqIdx);
+    const rest = eqIdx === -1 ? '' : arg.slice(eqIdx);
+    const kebab = flag.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+    return kebab === flag ? arg : `--${kebab}${rest}`;
+  });
+}
+
 // Parse CLI arguments using util.parseArgs
 function parseCLI() {
   const { values, positionals } = parseArgs({
-    args: process.argv.slice(2), // Skip node and script path
+    args: normalizeArgv(process.argv.slice(2)), // Skip node and script path
     options: {
       // Global options
       index: {

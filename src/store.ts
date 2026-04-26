@@ -4815,7 +4815,17 @@ export function extractSnippet(body: string, query: string, maxLen = 500, chunkP
     return extractSnippet(body, query, maxLen, undefined, undefined, intent);
   }
 
-  if (snippetText.length > maxLen) snippetText = snippetText.substring(0, maxLen - 3) + "...";
+  if (snippetText.length > maxLen) {
+    const cutoff = maxLen - 3;
+    // Walk back from cutoff to find a clean break: sentence end, newline, or word boundary
+    let breakPos = -1;
+    for (let i = cutoff; i >= cutoff - 60 && i >= 0; i--) {
+      const ch = snippetText[i];
+      if (ch === '\n' || ch === '.' || ch === '!' || ch === '?' || ch === ',') { breakPos = i + 1; break; }
+      if (breakPos === -1 && (ch === ' ' || ch === '\t')) breakPos = i;
+    }
+    snippetText = snippetText.substring(0, breakPos > 0 ? breakPos : cutoff).trimEnd() + "...";
+  }
 
   const absoluteStart = lineOffset + start + 1; // 1-indexed
   const snippetLineCount = snippetLines.length;
