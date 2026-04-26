@@ -259,7 +259,8 @@ function formatETA(seconds: number): string {
 
 
 // Check index health and print warnings/tips
-function checkIndexHealth(db: Database): void {
+function checkIndexHealth(db: Database, quiet = false): void {
+  if (quiet) return;
   const { needsEmbedding, totalDocs, daysStale } = getIndexHealth(db);
 
   // Warn if many docs need embedding
@@ -1927,6 +1928,7 @@ type OutputOptions = {
   intent?: string;       // Domain intent for disambiguation
   skipRerank?: boolean;  // Skip LLM reranking, use RRF scores only
   chunkStrategy?: ChunkStrategy;  // "auto" (default) or "regex"
+  quiet?: boolean;       // Suppress progress/tip messages on stderr
 };
 
 // Highlight query terms in text (skip short words < 3 chars)
@@ -2407,7 +2409,7 @@ async function vectorSearch(query: string, opts: OutputOptions, _model: string =
   const collectionNames = resolveCollectionFilter(opts.collection, true);
   const singleCollection = collectionNames.length === 1 ? collectionNames[0] : undefined;
 
-  checkIndexHealth(store.db);
+  checkIndexHealth(store.db, opts.quiet);
 
   await withLLMSession(async () => {
     let results = await vectorSearchQuery(store, query, {
@@ -2417,8 +2419,10 @@ async function vectorSearch(query: string, opts: OutputOptions, _model: string =
       intent: opts.intent,
       hooks: {
         onExpand: (original, expanded) => {
-          logExpansionTree(original, expanded);
-          process.stderr.write(`${c.dim}Searching ${expanded.length + 1} vector queries...${c.reset}\n`);
+          if (!opts.quiet) {
+            logExpansionTree(original, expanded);
+            process.stderr.write(`${c.dim}Searching ${expanded.length + 1} vector queries...${c.reset}\n`);
+          }
         },
       },
     });
@@ -2458,7 +2462,7 @@ async function querySearch(query: string, opts: OutputOptions, _embedModel: stri
   const collectionNames = resolveCollectionFilter(opts.collection, true);
   const singleCollection = collectionNames.length === 1 ? collectionNames[0] : undefined;
 
-  checkIndexHealth(store.db);
+  checkIndexHealth(store.db, opts.quiet);
 
   // Check for structured query syntax (lex:/vec:/hyde:/intent: prefixes)
   const parsed = parseStructuredQuery(query);
@@ -2468,22 +2472,26 @@ async function querySearch(query: string, opts: OutputOptions, _embedModel: stri
   await withLLMSession(async () => {
     let results;
 
+    const log = (msg: string) => { if (!opts.quiet) process.stderr.write(msg); };
+
     if (parsed) {
       const structuredQueries = parsed.searches;
       // Structured search — user provided their own query expansions
       const typeLabels = structuredQueries.map(s => s.type).join('+');
-      process.stderr.write(`${c.dim}Structured search: ${structuredQueries.length} queries (${typeLabels})${c.reset}\n`);
+      log(`${c.dim}Structured search: ${structuredQueries.length} queries (${typeLabels})${c.reset}\n`);
       if (intent) {
-        process.stderr.write(`${c.dim}├─ intent: ${intent}${c.reset}\n`);
+        log(`${c.dim}├─ intent: ${intent}${c.reset}\n`);
       }
 
       // Log each sub-query
-      for (const s of structuredQueries) {
-        let preview = s.query.replace(/\n/g, ' ');
-        if (preview.length > 72) preview = preview.substring(0, 69) + '...';
-        process.stderr.write(`${c.dim}├─ ${s.type}: ${preview}${c.reset}\n`);
+      if (!opts.quiet) {
+        for (const s of structuredQueries) {
+          let preview = s.query.replace(/\n/g, ' ');
+          if (preview.length > 72) preview = preview.substring(0, 69) + '...';
+          process.stderr.write(`${c.dim}├─ ${s.type}: ${preview}${c.reset}\n`);
+        }
+        process.stderr.write(`${c.dim}└─ Searching...${c.reset}\n`);
       }
-      process.stderr.write(`${c.dim}└─ Searching...${c.reset}\n`);
 
       results = await structuredSearch(store, structuredQueries, {
         collections: singleCollection ? [singleCollection] : undefined,
@@ -2496,18 +2504,18 @@ async function querySearch(query: string, opts: OutputOptions, _embedModel: stri
         chunkStrategy: opts.chunkStrategy,
         hooks: {
           onEmbedStart: (count) => {
-            process.stderr.write(`${c.dim}Embedding ${count} ${count === 1 ? 'query' : 'queries'}...${c.reset}`);
+            log(`${c.dim}Embedding ${count} ${count === 1 ? 'query' : 'queries'}...${c.reset}`);
           },
           onEmbedDone: (ms) => {
-            process.stderr.write(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
+            log(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
           },
           onRerankStart: (chunkCount) => {
-            process.stderr.write(`${c.dim}Reranking ${chunkCount} chunks...${c.reset}`);
-            progress.indeterminate();
+            log(`${c.dim}Reranking ${chunkCount} chunks...${c.reset}`);
+            if (!opts.quiet) progress.indeterminate();
           },
           onRerankDone: (ms) => {
-            progress.clear();
-            process.stderr.write(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
+            if (!opts.quiet) progress.clear();
+            log(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
           },
         },
       });
@@ -2524,29 +2532,29 @@ async function querySearch(query: string, opts: OutputOptions, _embedModel: stri
         chunkStrategy: opts.chunkStrategy,
         hooks: {
           onStrongSignal: (score) => {
-            process.stderr.write(`${c.dim}Strong BM25 signal (${score.toFixed(2)}) — skipping expansion${c.reset}\n`);
+            log(`${c.dim}Strong BM25 signal (${score.toFixed(2)}) — skipping expansion${c.reset}\n`);
           },
           onExpandStart: () => {
-            process.stderr.write(`${c.dim}Expanding query...${c.reset}`);
+            log(`${c.dim}Expanding query...${c.reset}`);
           },
           onExpand: (original, expanded, ms) => {
-            process.stderr.write(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
-            logExpansionTree(original, expanded);
-            process.stderr.write(`${c.dim}Searching ${expanded.length + 1} queries...${c.reset}\n`);
+            log(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
+            if (!opts.quiet) logExpansionTree(original, expanded);
+            log(`${c.dim}Searching ${expanded.length + 1} queries...${c.reset}\n`);
           },
           onEmbedStart: (count) => {
-            process.stderr.write(`${c.dim}Embedding ${count} ${count === 1 ? 'query' : 'queries'}...${c.reset}`);
+            log(`${c.dim}Embedding ${count} ${count === 1 ? 'query' : 'queries'}...${c.reset}`);
           },
           onEmbedDone: (ms) => {
-            process.stderr.write(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
+            log(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
           },
           onRerankStart: (chunkCount) => {
-            process.stderr.write(`${c.dim}Reranking ${chunkCount} chunks...${c.reset}`);
-            progress.indeterminate();
+            log(`${c.dim}Reranking ${chunkCount} chunks...${c.reset}`);
+            if (!opts.quiet) progress.indeterminate();
           },
           onRerankDone: (ms) => {
-            progress.clear();
-            process.stderr.write(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
+            if (!opts.quiet) progress.clear();
+            log(`${c.dim} (${formatMs(ms)})${c.reset}\n`);
           },
         },
       });
@@ -2708,6 +2716,8 @@ function parseCLI() {
       "no-callouts": { type: "boolean" },  // strip callouts from output
       "no-codeblocks": { type: "boolean" },  // strip fenced code blocks from output
       section: { type: "string" },  // section heading path
+      // Output options
+      quiet: { type: "boolean", short: "q" },
       // Query options
       "candidate-limit": { type: "string", short: "C" },
       "no-rerank": { type: "boolean", default: false },
@@ -2756,6 +2766,7 @@ function parseCLI() {
     explain: !!values.explain,
     intent: values.intent as string | undefined,
     chunkStrategy: parseChunkStrategy(values["chunk-strategy"]),
+    quiet: !!values.quiet || ["json", "csv", "xml", "files"].includes(format),
   };
 
   return {
@@ -2977,6 +2988,7 @@ function showHelp(): void {
   console.log("  --line-numbers             - Include line numbers in output");
   console.log("  --explain                  - Include retrieval score traces (query --json/CLI)");
   console.log("  --files | --json | --csv | --md | --xml  - Output format");
+  console.log("  -q, --quiet                - Suppress progress/tip messages (auto-enabled for --json/--csv/--xml/--files)");
   console.log("  -c, --collection <name>    - Filter by one or more collections");
   console.log("");
   console.log("Get options:");
