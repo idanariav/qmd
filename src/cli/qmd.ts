@@ -1146,7 +1146,10 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
 
     if (stripCallouts) {
       const sec = parseStructure(sectionContent);
-      output = sec.sections.map(s => s.body_no_callouts).join('\n\n');
+      output = sec.sections.map(s => {
+        const headingLine = s.heading ? `${'#'.repeat(s.level)} ${s.heading}\n\n` : '';
+        return headingLine + s.body_no_callouts;
+      }).join('\n\n');
     } else {
       output = sectionContent;
     }
@@ -1156,7 +1159,10 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
   } else if (stripCallouts) {
     // Full document with callouts stripped
     const structure = parseStructure(fm.body);
-    output = structure.sections.map(s => s.body_no_callouts).join('\n\n');
+    output = structure.sections.map(s => {
+      const headingLine = s.heading ? `${'#'.repeat(s.level)} ${s.heading}\n\n` : '';
+      return headingLine + s.body_no_callouts;
+    }).join('\n\n');
   }
 
   // Strip fenced code blocks if requested
