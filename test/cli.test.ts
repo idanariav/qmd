@@ -13,7 +13,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { setTimeout as sleep } from "timers/promises";
-import { buildEditorUri, termLink } from "../src/cli/qmd.ts";
+import { buildEditorUri, termLink } from "../src/cli/qmd.js";
 
 // Test fixtures directory and database path
 let testDir: string;
@@ -1396,7 +1396,7 @@ describe("mcp http daemon", () => {
 
       const res = await fetch(`http://localhost:${port}/health`);
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await res.json() as Record<string, unknown>;
       expect(body.status).toBe("ok");
     } finally {
       proc.kill("SIGTERM");

@@ -52,7 +52,6 @@ import {
   STRONG_SIGNAL_MIN_SCORE,
   STRONG_SIGNAL_MIN_GAP,
   generateEmbeddings,
-  _resetProductionModeForTesting,
   hybridQuery,
   vectorSearchQuery,
   type Store,
@@ -3500,9 +3499,10 @@ describe("Embedding batching", () => {
       await vectorSearchQuery(store, "custom query", { limit: 7, minScore: 0 });
 
       expect(searchVecSpy).toHaveBeenCalledTimes(1);
-      expect(searchVecSpy.mock.calls[0]?.[0]).toBe("custom query");
-      expect(searchVecSpy.mock.calls[0]?.[1]).toBe(model);
-      expect(searchVecSpy.mock.calls[0]?.[2]).toBe(7);
+      const vecCall0 = searchVecSpy.mock.calls[0] as unknown[];
+      expect(vecCall0?.[0]).toBe("custom query");
+      expect(vecCall0?.[1]).toBe(model);
+      expect(vecCall0?.[2]).toBe(7);
     } finally {
       await cleanupTestDb(store);
     }
@@ -3531,9 +3531,10 @@ describe("Embedding batching", () => {
 
       expect(embedBatchSpy).toHaveBeenCalledTimes(1);
       expect(searchVecSpy).toHaveBeenCalledTimes(1);
-      expect(searchVecSpy.mock.calls[0]?.[0]).toBe("hybrid query");
-      expect(searchVecSpy.mock.calls[0]?.[1]).toBe(model);
-      expect(searchVecSpy.mock.calls[0]?.[5]).toEqual([1, 2, 3]);
+      const hybridCall0 = searchVecSpy.mock.calls[0] as unknown[];
+      expect(hybridCall0?.[0]).toBe("hybrid query");
+      expect(hybridCall0?.[1]).toBe(model);
+      expect(hybridCall0?.[5]).toEqual([1, 2, 3]);
     } finally {
       await cleanupTestDb(store);
     }

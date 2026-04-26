@@ -11,7 +11,7 @@
  * SQLite build before creating any database instances.
  */
 
-export const isBun = typeof globalThis.Bun !== "undefined";
+export const isBun = typeof (globalThis as Record<string, unknown>).Bun !== "undefined";
 
 let _Database: any;
 let _sqliteVecLoad: ((db: any) => void) | null;
