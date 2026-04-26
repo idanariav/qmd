@@ -20,7 +20,7 @@ claude plugin install qmd@pkm-query-tools
 **Via npm:**
 
 ```sh
-npm install -g @tobilu/qmd
+npm install -g @idan_ariav/qmd
 ```
 
 Requires Node.js ≥ 22.
