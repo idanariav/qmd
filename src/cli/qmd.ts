@@ -78,6 +78,7 @@ import {
   findByFilter,
   extractSectionByHeading,
   resolveRawContent,
+  findCodeFences,
   type FindResult,
   type ReindexResult,
   type ChunkStrategy,
@@ -1167,7 +1168,13 @@ function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
 
   // Strip fenced code blocks if requested
   if (noCodeblocks) {
-    output = output.replace(/^```[\s\S]*?^```\s*$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+    const fences = findCodeFences(output);
+    // Remove regions from back to front to preserve offsets
+    for (let i = fences.length - 1; i >= 0; i--) {
+      const { start, end } = fences[i]!;
+      output = output.slice(0, start) + output.slice(end);
+    }
+    output = output.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   const startLine = fromLine || 1;
