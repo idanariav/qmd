@@ -2,6 +2,10 @@
 
 Use Bun instead of Node.js (`bun` not `node`, `bun install` not `npm install`).
 
+## General instructions
+
+When refactoring commands, for example renaming, adding/removing params - review the claude.md, relevant docs and README.md file to ensure no stale or outdated references remain.
+
 ## Commands
 
 ```sh
