@@ -29,92 +29,7 @@ qmd mcp --http --daemon           # Start as background daemon
 qmd mcp stop                      # Stop background MCP daemon
 ```
 
-## Collection Management
-
-```sh
-# List all collections
-qmd collection list
-
-# Create a collection with explicit name
-qmd collection add ~/Documents/notes --name mynotes --mask '**/*.md'
-
-# Remove a collection
-qmd collection remove mynotes
-
-# Rename a collection
-qmd collection rename mynotes my-notes
-
-# List all files in a collection
-qmd ls mynotes
-
-# List files with a path prefix
-qmd ls journals/2025
-qmd ls qmd://journals/2025
-```
-
-## Context Management
-
-```sh
-# Add context to current directory (auto-detects collection)
-qmd context add "Description of these files"
-
-# Add context to a specific path
-qmd context add /subfolder "Description for subfolder"
-
-# Add global context to all collections (system message)
-qmd context add / "Always include this context"
-
-# Add context using virtual paths
-qmd context add qmd://journals/ "Context for entire journals collection"
-qmd context add qmd://journals/2024 "Journal entries from 2024"
-
-# List all contexts
-qmd context list
-
-# Check for collections or paths without context
-qmd context check
-
-# Remove context
-qmd context rm qmd://journals/2024
-qmd context rm /  # Remove global context
-```
-
-## Document IDs (docid)
-
-Each document has a unique short ID (docid) - the first 6 characters of its content hash.
-Docids are shown in search results as `#abc123` and can be used with `get` and `multi-get`:
-
-```sh
-# Search returns docid in results
-qmd tsearch "query" --json
-# Output: [{"docid": "#abc123", "score": 0.85, "file": "docs/readme.md", ...}]
-
-# Get document by docid
-qmd get "#abc123"
-qmd get abc123              # Leading # is optional
-
-# Docids also work in multi-get comma-separated lists
-qmd multi-get "#abc123, #def456"
-```
-
-## Options
-
-```sh
-# Search & retrieval
--c, --collection <name>  # Restrict search to a collection (matches pwd suffix)
--n <num>                 # Number of results
---all                    # Return all matches
---min-score <num>        # Minimum score threshold
---full                   # Show full document content
---line-numbers           # Add line numbers to output
-
-# Multi-get specific
--l <num>                 # Maximum lines per file
---max-bytes <num>        # Skip files larger than this (default 10KB)
-
-# Output formats (search and multi-get)
---json, --csv, --md, --xml, --files
-```
+For command usage examples and options, see the [README](README.md).
 
 ## Development
 
@@ -134,12 +49,7 @@ bun test --preload ./src/test-preload.ts test/
 
 ## Architecture
 
-- SQLite FTS5 for full-text search (BM25)
-- sqlite-vec for vector similarity search
-- node-llama-cpp for embeddings (embeddinggemma), reranking (qwen3-reranker), and query expansion (Qwen3)
-- Reciprocal Rank Fusion (RRF) for combining results
-- Smart chunking: 900 tokens/chunk with 15% overlap, prefers markdown headings as boundaries
-- AST-aware chunking: use `--chunk-strategy auto` to chunk code files (.ts/.js/.py/.go/.rs) at function/class/import boundaries via tree-sitter. Default is `regex` (existing behavior). Markdown and unknown file types always use regex chunking.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full module map, DB schema summary, key file paths, and links to subsystem docs (indexing, embedding, querying, retrieval).
 
 ## Important: Do NOT run automatically
 
@@ -156,9 +66,7 @@ bun test --preload ./src/test-preload.ts test/
 
 ## Releasing
 
-Use `/release <version>` to cut a release. Full changelog standards,
-release workflow, and git hook setup are documented in the
-[release skill](skills/release/SKILL.md).
+Use `/npm-release` to cut a release.
 
 Key points:
 - Add changelog entries under `## [Unreleased]` **as you make changes**
