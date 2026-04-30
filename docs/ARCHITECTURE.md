@@ -16,22 +16,27 @@ Filesystem → [INDEXING] → SQLite metadata + FTS
 
 ## Source File Map
 
-| File | Lines | Responsibility |
-|------|-------|----------------|
-| `src/store.ts` | 5,608 | Central DB layer: indexing, chunking, embedding, all search types, retrieval |
-| `src/collections.ts` | 520 | YAML config CRUD for collections and contexts |
-| `src/llm.ts` | 1,665 | node-llama-cpp wrapper: embed, rerank, query expansion; lazy-load + auto-unload |
-| `src/ast.ts` | 391 | AST-aware chunking via tree-sitter (TS, JS, Python, Go, Rust) |
-| `src/cli/qmd.ts` | ~3,600 | CLI entry point: command routing, output formatting |
-| `src/mcp/server.ts` | 969 | MCP server (stdio + HTTP transports) |
-| `src/db.ts` | 97 | SQLite abstraction; loads sqlite-vec extension |
-| `src/index.ts` | 560 | Public SDK entry point |
-| `src/parse/frontmatter.ts` | — | YAML frontmatter extraction |
-| `src/parse/structure.ts` | — | Document structure parsing (headings, callouts, wikilinks) |
-| `src/query/parser.ts` | — | fsearch DSL parser |
-| `src/query/lexer.ts` | — | DSL tokenizer |
-| `src/query/compile.ts` | — | Compiles parsed DSL to SQLite predicates |
-| `src/maintenance.ts` | 54 | Database maintenance helpers |
+| File | Responsibility |
+|------|----------------|
+| `src/store/` | Central DB layer — re-exported via `src/store.ts` shim. Submodules: `config`, `paths`, `db-schema`, `cache`, `chunking`, `documents`, `search-fts`, `search-vec`, `search-hybrid`, `indexing`, `retrieval`, `factory`, and more |
+| `src/collections.ts` | YAML config CRUD for collections and contexts |
+| `src/llm.ts` | node-llama-cpp wrapper: embed, rerank, query expansion; lazy-load + auto-unload |
+| `src/ast.ts` | AST-aware chunking via tree-sitter (TS, JS, Python, Go, Rust) |
+| `src/cli/qmd.ts` | CLI entry point: thin dispatcher — re-exports `buildEditorUri`/`termLink` for test compatibility |
+| `src/cli/store-access.ts` | Singleton store, DB lifecycle, model resolution, `resyncConfig` |
+| `src/cli/utils.ts` | Colors, cursor, progress bar, format helpers |
+| `src/cli/args.ts` | `parseCLI`, `normalizeArgv`, output option types |
+| `src/cli/uri.ts` | `buildEditorUri`, `termLink` |
+| `src/cli/commands/` | One file per command group: `status`, `context`, `get`, `collection`, `index-cmd`, `search`, `misc` |
+| `src/mcp/server.ts` | MCP server (stdio + HTTP transports) |
+| `src/db.ts` | SQLite abstraction; loads sqlite-vec extension |
+| `src/index.ts` | Public SDK entry point |
+| `src/parse/frontmatter.ts` | YAML frontmatter extraction |
+| `src/parse/structure.ts` | Document structure parsing (headings, callouts, wikilinks) |
+| `src/query/parser.ts` | fsearch DSL parser |
+| `src/query/lexer.ts` | DSL tokenizer |
+| `src/query/compile.ts` | Compiles parsed DSL to SQLite predicates |
+| `src/maintenance.ts` | Database maintenance helpers |
 
 ## SQLite Schema Summary
 
