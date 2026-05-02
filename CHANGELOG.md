@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-05-02
+
+Bug fix for `--no-codeblocks` stripping and internal code split into
+submodules (no public API changes).
+
+### Fixed
+
+- `qmd get --no-codeblocks` now correctly handles multiple consecutive
+  fenced code blocks and `~~~`-style fences using CommonMark pairing rules.
+  Previously a naive regex could swallow text between adjacent blocks.
+
+### Changed
+
+- `src/store.ts` and `src/cli/qmd.ts` split into focused submodules
+  (`src/store/` and `src/cli/commands/`). Both files remain as 1-line
+  re-export shims — no import path changes required.
+
 ## [2.3.0] - 2026-04-26
 
 `qmd get` gains `--raw` mode and `--skip-codeblocks`, search output is
