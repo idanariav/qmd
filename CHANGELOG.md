@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Removed
+
+- SDK: `Maintenance` class removed from the public API (`import { Maintenance } from '@tobilu/qmd'`). It only wrapped methods already available directly on the `Store` returned by `createStore()` (`store.cleanupOrphanedContent()`, `store.vacuumDatabase()`, etc.) — use those instead.
+
+### Fixed
+
+- `qmd index --pull` now actually gates collection update-commands on the flag; previously `qmd index` always ran `update` commands regardless of `--pull`.
+- `qmd tsearch`/`hsearch --format xml` now properly escapes `&`/`<`/`>` in titles, context, and body content instead of emitting invalid XML.
+- `qmd collection add` now uses the same indexer as `qmd index` (`reindexCollection`), so freshly-added collections get full frontmatter/section metadata instead of a weaker subset.
+- Programmatic `Store.insertDocument`/`updateDocumentTitle`/`updateDocument` now forward `originalPath` as documented, instead of silently dropping it.
+
+### Changed
+
+- `hybridQuery` and `structuredSearch` now share one `finalizeCandidates` post-fusion pipeline instead of two independently drifting copies, fixing an inconsistency where `structuredSearch` only weighted the top-1 ranked list 2x (vs. `hybridQuery`'s top-2).
+- `qmd fsearch` with a `~/regex/` filter now fails with a clear, actionable error under Bun (`bun:sqlite` has no custom-function support, so regex filters can't run) instead of the raw `no such function: REGEXP` SQLite error. Docs updated to note regex filters need Node.js/better-sqlite3.
+
 ## [2.3.1] - 2026-05-02
 
 Bug fix for `--no-codeblocks` stripping and internal code split into

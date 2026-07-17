@@ -3,11 +3,16 @@
 import type { Database } from "../db.js";
 import { getDocid } from "./documents.js";
 import { getContextForFile } from "./context-ops.js";
+import { parseVirtualPath } from "./virtual-paths.js";
 import type { SearchResult } from "./documents.js";
 import {
   getDefaultLlamaCpp, formatQueryForEmbedding, formatDocForEmbedding,
   type ILLMSession, type LlamaCpp,
 } from "../llm.js";
+
+export function vectorsTableExists(db: Database): boolean {
+  return !!db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='vectors_vec'`).get();
+}
 
 async function getEmbedding(
   text: string,
@@ -34,8 +39,7 @@ export async function searchVec(
   session?: ILLMSession,
   precomputedEmbedding?: number[]
 ): Promise<SearchResult[]> {
-  const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='vectors_vec'`).get();
-  if (!tableExists) return [];
+  if (!vectorsTableExists(db)) return [];
 
   const embedding = precomputedEmbedding ?? await getEmbedding(query, model, true, session);
   if (!embedding) return [];
@@ -93,7 +97,7 @@ export async function searchVec(
     .sort((a, b) => a.bestDist - b.bestDist)
     .slice(0, limit)
     .map(({ row, bestDist }) => {
-      const coll = row.filepath.split('//')[1]?.split('/')[0] || "";
+      const coll = parseVirtualPath(row.filepath)?.collectionName || "";
       return {
         filepath: row.filepath,
         displayPath: row.display_path,
@@ -142,11 +146,7 @@ export function clearAllEmbeddings(db: Database, collection?: string): void {
       )
   `;
 
-  const vecTableExists = db
-    .prepare(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='vectors_vec'`)
-    .get();
-
-  if (vecTableExists) {
+  if (vectorsTableExists(db)) {
     const hashSeqRows = db.prepare(`
       SELECT cv.hash, cv.seq
       FROM content_vectors cv

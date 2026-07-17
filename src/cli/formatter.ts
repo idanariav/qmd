@@ -38,7 +38,6 @@ export type OutputFormat = "cli" | "csv" | "md" | "xml" | "files" | "json";
 export type FormatOptions = {
   full?: boolean;       // Show full document content instead of snippet
   query?: string;       // Query for snippet extraction and highlighting
-  useColor?: boolean;   // Enable terminal colors (default: false for non-CLI)
   lineNumbers?: boolean;// Add line numbers to output
   intent?: string;      // Domain intent for snippet extraction disambiguation
 };

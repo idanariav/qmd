@@ -6,8 +6,6 @@ import {
   listCollections,
   getHashesNeedingEmbedding,
   clearCache,
-  homedir,
-  resolve,
   reindexCollection,
 } from "../../store.js";
 import { getDefaultLlamaCpp } from "../../llm.js";
@@ -16,7 +14,7 @@ import {
   listAllContexts,
 } from "../../collections.js";
 import { getStore, getDb, getDbPath, closeDb, models } from "../store-access.js";
-import { c, cursor, progress, isTTY, formatETA, formatTimeAgo, formatMs, formatBytes } from "../utils.js";
+import { c, cursor, progress, isTTY, formatETA, formatTimeAgo, formatMs, formatBytes, getMcpPidPath } from "../utils.js";
 
 export async function showStatus(): Promise<void> {
   const dbPath = getDbPath();
@@ -39,10 +37,7 @@ export async function showStatus(): Promise<void> {
   console.log(`Index: ${dbPath}`);
   console.log(`Size:  ${formatBytes(indexSize)}`);
 
-  const mcpCacheDir = process.env.XDG_CACHE_HOME
-    ? resolve(process.env.XDG_CACHE_HOME, "qmd")
-    : resolve(homedir(), ".cache", "qmd");
-  const mcpPidPath = resolve(mcpCacheDir, "mcp.pid");
+  const mcpPidPath = getMcpPidPath();
   if (existsSync(mcpPidPath)) {
     const mcpPid = parseInt(readFileSync(mcpPidPath, "utf-8").trim());
     try {
@@ -220,7 +215,7 @@ export async function showStatus(): Promise<void> {
   closeDb();
 }
 
-export async function updateCollections(): Promise<void> {
+export async function updateCollections(pull: boolean): Promise<void> {
   const db = getDb();
   const storeInstance = getStore();
 
@@ -242,7 +237,7 @@ export async function updateCollections(): Promise<void> {
     console.log(`${c.cyan}[${i + 1}/${collections.length}]${c.reset} ${c.bold}${col.name}${c.reset} ${c.dim}(${col.glob_pattern})${c.reset}`);
 
     const yamlCol = getCollectionFromYaml(col.name);
-    if (yamlCol?.update) {
+    if (pull && yamlCol?.update) {
       console.log(`${c.dim}    Running update command: ${yamlCol.update}${c.reset}`);
       try {
         const proc = nodeSpawn("bash", ["-c", yamlCol.update], {

@@ -12,6 +12,7 @@ import {
   type Llama,
   type LlamaModel,
   type LlamaEmbeddingContext,
+  type LlamaGrammar,
   type Token as LlamaToken,
 } from "node-llama-cpp";
 import { homedir } from "os";
@@ -195,14 +196,7 @@ export type RerankDocument = {
 // Override via QMD_EMBED_MODEL env var (e.g. hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf)
 const DEFAULT_EMBED_MODEL = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
 const DEFAULT_RERANK_MODEL = "hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf";
-// const DEFAULT_GENERATE_MODEL = "hf:ggml-org/Qwen3-0.6B-GGUF/Qwen3-0.6B-Q8_0.gguf";
 const DEFAULT_GENERATE_MODEL = "hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf";
-
-// Alternative generation models for query expansion:
-// LiquidAI LFM2 - hybrid architecture optimized for edge/on-device inference
-// Use these as base for fine-tuning with configs/sft_lfm2.yaml
-export const LFM2_GENERATE_MODEL = "hf:LiquidAI/LFM2-1.2B-GGUF/LFM2-1.2B-Q4_K_M.gguf";
-export const LFM2_INSTRUCT_MODEL = "hf:LiquidAI/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf";
 
 export const DEFAULT_EMBED_MODEL_URI = DEFAULT_EMBED_MODEL;
 export const DEFAULT_RERANK_MODEL_URI = DEFAULT_RERANK_MODEL;
@@ -490,6 +484,10 @@ export class LlamaCpp implements LLM {
   private embedModelLoadPromise: Promise<LlamaModel> | null = null;
   private generateModelLoadPromise: Promise<LlamaModel> | null = null;
   private rerankModelLoadPromise: Promise<LlamaModel> | null = null;
+
+  // Cached compiled GBNF grammar for expandQuery — the grammar text is static, so
+  // there's no need to re-parse/compile it on every call.
+  private expandGrammarPromise: Promise<LlamaGrammar> | null = null;
 
   // Inactivity timer for auto-unloading models
   private inactivityTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1139,14 +1137,17 @@ export class LlamaCpp implements LLM {
     const includeLexical = options.includeLexical ?? true;
     const context = options.context;
 
-    const grammar = await llama.createGrammar({
-      grammar: `
-        root ::= line+
-        line ::= type ": " content "\\n"
-        type ::= "lex" | "vec" | "hyde"
-        content ::= [^\\n]+
-      `
-    });
+    if (!this.expandGrammarPromise) {
+      this.expandGrammarPromise = llama.createGrammar({
+        grammar: `
+          root ::= line+
+          line ::= type ": " content "\\n"
+          type ::= "lex" | "vec" | "hyde"
+          content ::= [^\\n]+
+        `
+      });
+    }
+    const grammar = await this.expandGrammarPromise;
 
     const intent = options.intent;
     const prompt = intent
@@ -1382,6 +1383,7 @@ export class LlamaCpp implements LLM {
     this.embedContextsCreatePromise = null;
     this.generateModelLoadPromise = null;
     this.rerankModelLoadPromise = null;
+    this.expandGrammarPromise = null;
   }
 }
 

@@ -5,7 +5,7 @@
  * Collections define which directories to index and their associated contexts.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { homedir } from "os";
 import YAML from "yaml";
@@ -147,10 +147,14 @@ function ensureConfigDir(): void {
 // Core functions
 // ============================================================================
 
+/** In-memory cache of parsed file-based configs, keyed by resolved path and validated by mtime. */
+const configFileCache = new Map<string, { mtimeMs: number; config: CollectionConfig }>();
+
 /**
  * Load configuration from the configured source.
  * - Inline config: returns the in-memory object directly
- * - File-based: reads from YAML file (default ~/.config/qmd/index.yml)
+ * - File-based: reads from YAML file (default ~/.config/qmd/index.yml), cached
+ *   per-path until the file's mtime changes (invalidated by `saveConfig`)
  * Returns empty config if file doesn't exist
  */
 export function loadConfig(): CollectionConfig {
@@ -162,7 +166,14 @@ export function loadConfig(): CollectionConfig {
   // File-based config (SDK custom path or default)
   const configPath = configSource.path || getConfigFilePath();
   if (!existsSync(configPath)) {
+    configFileCache.delete(configPath);
     return { collections: {} };
+  }
+
+  const mtimeMs = statSync(configPath).mtimeMs;
+  const cached = configFileCache.get(configPath);
+  if (cached && cached.mtimeMs === mtimeMs) {
+    return cached.config;
   }
 
   try {
@@ -174,6 +185,7 @@ export function loadConfig(): CollectionConfig {
       config.collections = {};
     }
 
+    configFileCache.set(configPath, { mtimeMs, config });
     return config;
   } catch (error) {
     throw new Error(`Failed to parse ${configPath}: ${error}`);
@@ -204,6 +216,7 @@ export function saveConfig(config: CollectionConfig): void {
       lineWidth: 0,  // Don't wrap lines
     });
     writeFileSync(configPath, yaml, "utf-8");
+    configFileCache.delete(configPath);
   } catch (error) {
     throw new Error(`Failed to write ${configPath}: ${error}`);
   }
@@ -359,14 +372,6 @@ export function setGlobalContext(context: string | undefined): void {
 }
 
 /**
- * Get all contexts for a collection
- */
-export function getContexts(collectionName: string): ContextMap | undefined {
-  const collection = getCollection(collectionName);
-  return collection?.context;
-}
-
-/**
  * Add or update a context for a specific path in a collection
  */
 export function addContext(
@@ -451,44 +456,6 @@ export function listAllContexts(): Array<{
   return results;
 }
 
-/**
- * Find best matching context for a given collection and path
- * Returns the most specific matching context (longest path prefix match)
- */
-export function findContextForPath(
-  collectionName: string,
-  filePath: string
-): string | undefined {
-  const config = loadConfig();
-  const collection = config.collections[collectionName];
-
-  if (!collection?.context) {
-    return config.global_context;
-  }
-
-  // Find all matching prefixes
-  const matches: Array<{ prefix: string; context: string }> = [];
-
-  for (const [prefix, context] of Object.entries(collection.context)) {
-    // Normalize paths for comparison
-    const normalizedPath = filePath.startsWith("/") ? filePath : `/${filePath}`;
-    const normalizedPrefix = prefix.startsWith("/") ? prefix : `/${prefix}`;
-
-    if (normalizedPath.startsWith(normalizedPrefix)) {
-      matches.push({ prefix: normalizedPrefix, context });
-    }
-  }
-
-  // Return most specific match (longest prefix)
-  if (matches.length > 0) {
-    matches.sort((a, b) => b.prefix.length - a.prefix.length);
-    return matches[0]!.context;
-  }
-
-  // Fallback to global context
-  return config.global_context;
-}
-
 // ============================================================================
 // Utility functions
 // ============================================================================
@@ -510,11 +477,3 @@ export function configExists(): boolean {
   return existsSync(path);
 }
 
-/**
- * Validate a collection name
- * Collection names must be valid and not contain special characters
- */
-export function isValidCollectionName(name: string): boolean {
-  // Allow alphanumeric, hyphens, underscores
-  return /^[a-zA-Z0-9_-]+$/.test(name);
-}

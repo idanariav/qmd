@@ -12,6 +12,7 @@ import {
 import {
   scanBreakPoints, findListBreakPoints, findCodeFences, findXmlTagBreakPoints,
   mergeBreakPoints, chunkDocumentWithBreakPoints, type ChunkStrategy,
+  type BreakPoint, type ProtectedRegion,
 } from "./chunking.js";
 import { parseFrontmatter } from "../parse/frontmatter.js";
 import { parseStructure } from "../parse/structure.js";
@@ -475,17 +476,23 @@ export function getActiveDocumentPaths(db: Database, collectionName: string): st
 // Chunking (high-level — depends on primitives in chunking.ts)
 // =============================================================================
 
+/** Scan break points shared by both the sync and async chunkers: regex, list, and XML-tag boundaries. */
+function collectBaseBreakPoints(content: string): { breakPoints: BreakPoint[]; protectedRegions: ProtectedRegion[] } {
+  const regexPoints = scanBreakPoints(content);
+  const listPoints = findListBreakPoints(content);
+  const protectedRegions = findCodeFences(content);
+  const tagPoints = findXmlTagBreakPoints(content, protectedRegions);
+  const breakPoints = mergeBreakPoints(mergeBreakPoints(regexPoints, listPoints), tagPoints);
+  return { breakPoints, protectedRegions };
+}
+
 export function chunkDocument(
   content: string,
   maxChars: number = CHUNK_SIZE_CHARS,
   overlapChars: number = CHUNK_OVERLAP_CHARS,
   windowChars: number = CHUNK_WINDOW_CHARS
 ): { text: string; pos: number }[] {
-  const regexPoints = scanBreakPoints(content);
-  const listPoints = findListBreakPoints(content);
-  const protectedRegions = findCodeFences(content);
-  const tagPoints = findXmlTagBreakPoints(content, protectedRegions);
-  const breakPoints = mergeBreakPoints(mergeBreakPoints(regexPoints, listPoints), tagPoints);
+  const { breakPoints, protectedRegions } = collectBaseBreakPoints(content);
   return chunkDocumentWithBreakPoints(content, breakPoints, protectedRegions, maxChars, overlapChars, windowChars);
 }
 
@@ -497,12 +504,9 @@ export async function chunkDocumentAsync(
   filepath?: string,
   chunkStrategy: ChunkStrategy = "regex",
 ): Promise<{ text: string; pos: number }[]> {
-  const regexPoints = scanBreakPoints(content);
-  const listPoints = findListBreakPoints(content);
-  const protectedRegions = findCodeFences(content);
-  const tagPoints = findXmlTagBreakPoints(content, protectedRegions);
+  const { breakPoints: baseBreakPoints, protectedRegions } = collectBaseBreakPoints(content);
 
-  let breakPoints = mergeBreakPoints(mergeBreakPoints(regexPoints, listPoints), tagPoints);
+  let breakPoints = baseBreakPoints;
   if (chunkStrategy === "auto" && filepath) {
     const { getASTBreakPoints } = await import("../ast.js");
     const astPoints = await getASTBreakPoints(content, filepath);

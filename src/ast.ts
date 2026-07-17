@@ -84,31 +84,23 @@ const GRAMMAR_MAP: Record<SupportedLanguage, { pkg: string; wasm: string }> = {
  * correct start position (before `export`), plus bare declarations for
  * non-exported code.
  */
+// tsx grammar shares TypeScript's declaration shapes, so it reuses this query verbatim.
+const TYPESCRIPT_QUERY = `
+    (export_statement) @export
+    (class_declaration) @class
+    (function_declaration) @func
+    (method_definition) @method
+    (interface_declaration) @iface
+    (type_alias_declaration) @type
+    (enum_declaration) @enum
+    (import_statement) @import
+    (lexical_declaration (variable_declarator value: (arrow_function))) @func
+    (lexical_declaration (variable_declarator value: (function_expression))) @func
+  `;
+
 const LANGUAGE_QUERIES: Record<SupportedLanguage, string> = {
-  typescript: `
-    (export_statement) @export
-    (class_declaration) @class
-    (function_declaration) @func
-    (method_definition) @method
-    (interface_declaration) @iface
-    (type_alias_declaration) @type
-    (enum_declaration) @enum
-    (import_statement) @import
-    (lexical_declaration (variable_declarator value: (arrow_function))) @func
-    (lexical_declaration (variable_declarator value: (function_expression))) @func
-  `,
-  tsx: `
-    (export_statement) @export
-    (class_declaration) @class
-    (function_declaration) @func
-    (method_definition) @method
-    (interface_declaration) @iface
-    (type_alias_declaration) @type
-    (enum_declaration) @enum
-    (import_statement) @import
-    (lexical_declaration (variable_declarator value: (arrow_function))) @func
-    (lexical_declaration (variable_declarator value: (function_expression))) @func
-  `,
+  typescript: TYPESCRIPT_QUERY,
+  tsx: TYPESCRIPT_QUERY,
   javascript: `
     (export_statement) @export
     (class_declaration) @class

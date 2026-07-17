@@ -1,34 +1,14 @@
-// Commands: indexFiles (qmd collection add), vectorIndex (qmd embed)
+// Commands: vectorIndex (qmd embed)
 
-import { readFileSync, statSync } from "fs";
-import fastGlob from "fast-glob";
 import {
-  getPwd,
-  getRealPath,
-  resolve,
-  clearCache,
-  hashContent,
-  extractTitle,
-  handelize,
   getHashesNeedingEmbedding,
-  insertContent,
-  insertDocument,
-  findOrMigrateLegacyDocument,
-  updateDocumentTitle,
-  updateDocument,
-  deactivateDocument,
-  getActiveDocumentPaths,
-  cleanupOrphanedContent,
   generateEmbeddings,
-  DEFAULT_GLOB,
   DEFAULT_EMBED_MAX_BATCH_BYTES,
   DEFAULT_EMBED_MAX_DOCS_PER_BATCH,
 } from "../../store.js";
 import type { ChunkStrategy } from "../../store.js";
-import { getStore, getDb, closeDb } from "../store-access.js";
+import { getStore, closeDb } from "../store-access.js";
 import { c, cursor, progress, isTTY, formatETA, formatBytes } from "../utils.js";
-
-export { DEFAULT_GLOB };
 
 export function renderProgressBar(percent: number, width: number = 30): string {
   const filled = Math.round((percent / 100) * width);
@@ -43,130 +23,6 @@ export function parseEmbedBatchOption(name: string, value: unknown): number | un
     throw new Error(`${name} must be a positive integer`);
   }
   return parsed;
-}
-
-export async function indexFiles(pwd?: string, globPattern: string = DEFAULT_GLOB, collectionName?: string, suppressEmbedNotice: boolean = false, ignorePatterns?: string[]): Promise<void> {
-  const db = getDb();
-  const resolvedPwd = pwd || getPwd();
-  const now = new Date().toISOString();
-  const excludeDirs = ["node_modules", ".git", ".cache", "vendor", "dist", "build"];
-
-  clearCache(db);
-
-  if (!collectionName) {
-    throw new Error("Collection name is required. Collections must be defined in ~/.config/qmd/index.yml");
-  }
-
-  console.log(`Collection: ${resolvedPwd} (${globPattern})`);
-
-  progress.indeterminate();
-  const allIgnore = [
-    ...excludeDirs.map(d => `**/${d}/**`),
-    ...(ignorePatterns || []),
-  ];
-  const allFiles: string[] = await fastGlob(globPattern, {
-    cwd: resolvedPwd,
-    onlyFiles: true,
-    followSymbolicLinks: false,
-    dot: false,
-    ignore: allIgnore,
-  });
-  const files = allFiles.filter(file => {
-    const parts = file.split("/");
-    return !parts.some(part => part.startsWith("."));
-  });
-
-  const total = files.length;
-  const hasNoFiles = total === 0;
-  if (hasNoFiles) {
-    progress.clear();
-    console.log("No files found matching pattern.");
-  }
-
-  let indexed = 0, updated = 0, unchanged = 0, processed = 0;
-  const seenPaths = new Set<string>();
-  const startTime = Date.now();
-
-  for (const relativeFile of files) {
-    const filepath = getRealPath(resolve(resolvedPwd, relativeFile));
-    const path = handelize(relativeFile);
-    seenPaths.add(path);
-
-    let content: string;
-    try {
-      content = readFileSync(filepath, "utf-8");
-    } catch {
-      processed++;
-      progress.set((processed / total) * 100);
-      continue;
-    }
-
-    if (!content.trim()) {
-      processed++;
-      continue;
-    }
-
-    const hash = await hashContent(content);
-    const title = extractTitle(content, relativeFile);
-
-    const existing = findOrMigrateLegacyDocument(db, collectionName, path);
-
-    if (existing) {
-      if (existing.hash === hash) {
-        if (existing.title !== title) {
-          updateDocumentTitle(db, existing.id, title, now);
-          updated++;
-        } else {
-          unchanged++;
-        }
-      } else {
-        insertContent(db, hash, content, now);
-        const stat = statSync(filepath);
-        updateDocument(db, existing.id, title, hash,
-          stat ? new Date(stat.mtime).toISOString() : now);
-        updated++;
-      }
-    } else {
-      indexed++;
-      insertContent(db, hash, content, now);
-      const stat = statSync(filepath);
-      insertDocument(db, collectionName, path, title, hash,
-        stat ? new Date(stat.birthtime).toISOString() : now,
-        stat ? new Date(stat.mtime).toISOString() : now);
-    }
-
-    processed++;
-    progress.set((processed / total) * 100);
-    const elapsed = (Date.now() - startTime) / 1000;
-    const rate = processed / elapsed;
-    const remaining = (total - processed) / rate;
-    const eta = processed > 2 ? ` ETA: ${formatETA(remaining)}` : "";
-    if (isTTY) process.stderr.write(`\rIndexing: ${processed}/${total}${eta}        `);
-  }
-
-  const allActive = getActiveDocumentPaths(db, collectionName);
-  let removed = 0;
-  for (const path of allActive) {
-    if (!seenPaths.has(path)) {
-      deactivateDocument(db, collectionName, path);
-      removed++;
-    }
-  }
-
-  const orphanedContent = cleanupOrphanedContent(db);
-  const needsEmbedding = getHashesNeedingEmbedding(db);
-
-  progress.clear();
-  console.log(`\nIndexed: ${indexed} new, ${updated} updated, ${unchanged} unchanged, ${removed} removed`);
-  if (orphanedContent > 0) {
-    console.log(`Cleaned up ${orphanedContent} orphaned content hash(es)`);
-  }
-
-  if (needsEmbedding > 0 && !suppressEmbedNotice) {
-    console.log(`\nRun 'qmd embed' to update embeddings (${needsEmbedding} unique hashes need vectors)`);
-  }
-
-  closeDb();
 }
 
 export async function vectorIndex(

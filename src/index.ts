@@ -122,9 +122,6 @@ export type { ChunkStrategy } from "./store.js";
 // Re-export getDefaultDbPath for CLI/MCP that need the default database location
 export { getDefaultDbPath } from "./store.js";
 
-// Re-export Maintenance class for CLI housekeeping operations
-export { Maintenance } from "./maintenance.js";
-
 /**
  * Progress info emitted during update() for each file processed.
  */
@@ -363,6 +360,8 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
 
   // Track whether we have a YAML config path for write-through
   const hasYamlConfig = !!options.configPath;
+  // Whether collection/context mutations should write through to YAML/inline config
+  const writeThrough = hasYamlConfig || !!options.config;
 
   // Sync config into SQLite store_collections
   let config: CollectionConfig | undefined;
@@ -444,20 +443,20 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
     // Collection Management — write to SQLite + write-through to YAML/inline if configured
     addCollection: async (name, opts) => {
       upsertStoreCollection(db, name, { path: opts.path, pattern: opts.pattern, ignore: opts.ignore });
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         collectionsAddCollection(name, opts.path, opts.pattern);
       }
     },
     removeCollection: async (name) => {
       const result = deleteStoreCollection(db, name);
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         collectionsRemoveCollection(name);
       }
       return result;
     },
     renameCollection: async (oldName, newName) => {
       const result = renameStoreCollection(db, oldName, newName);
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         collectionsRenameCollection(oldName, newName);
       }
       return result;
@@ -471,21 +470,21 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
     // Context Management — write to SQLite + write-through to YAML/inline if configured
     addContext: async (collectionName, pathPrefix, contextText) => {
       const result = updateStoreContext(db, collectionName, pathPrefix, contextText);
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         collectionsAddContext(collectionName, pathPrefix, contextText);
       }
       return result;
     },
     removeContext: async (collectionName, pathPrefix) => {
       const result = removeStoreContext(db, collectionName, pathPrefix);
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         collectionsRemoveContext(collectionName, pathPrefix);
       }
       return result;
     },
     setGlobalContext: async (context) => {
       setStoreGlobalContext(db, context);
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         collectionsSetGlobalContext(context);
       }
     },
@@ -550,7 +549,7 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
     close: async () => {
       await llm.dispose();
       internal.close();
-      if (hasYamlConfig || options.config) {
+      if (writeThrough) {
         setConfigSource(undefined); // Reset config source
       }
     },

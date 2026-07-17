@@ -65,6 +65,19 @@ function extractStringList(val: unknown): string[] {
   return [];
 }
 
+/** Try each field name in order, returning the first one `extract` resolves to a non-null value. */
+function firstMatch<T>(
+  fields: Iterable<string>,
+  data: Record<string, unknown>,
+  extract: (raw: unknown) => T | null
+): T | null {
+  for (const field of fields) {
+    const value = extract(data[field]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
 export function parseFrontmatter(fileContent: string): ParsedFrontmatter {
   let data: Record<string, unknown> = {};
   let body = fileContent;
@@ -82,27 +95,10 @@ export function parseFrontmatter(fileContent: string): ParsedFrontmatter {
     rows.push(...parseValue(key, val));
   }
 
-  let tags: string[] = [];
-  for (const field of TAG_FIELDS) {
-    if (data[field] !== undefined) { tags = extractStringList(data[field]); break; }
-  }
-
-  let createdDate: string | null = null;
-  for (const field of DATE_FIELDS) {
-    createdDate = toISODate(data[field]);
-    if (createdDate) break;
-  }
-
-  let modifiedDate: string | null = null;
-  for (const field of MODIFIED_FIELDS) {
-    modifiedDate = toISODate(data[field]);
-    if (modifiedDate) break;
-  }
-
-  let title: string | null = null;
-  for (const field of TITLE_FIELDS) {
-    if (typeof data[field] === "string" && data[field]) { title = data[field] as string; break; }
-  }
+  const tags = firstMatch(TAG_FIELDS, data, (raw) => raw !== undefined ? extractStringList(raw) : null) ?? [];
+  const createdDate = firstMatch(DATE_FIELDS, data, toISODate);
+  const modifiedDate = firstMatch(MODIFIED_FIELDS, data, toISODate);
+  const title = firstMatch(TITLE_FIELDS, data, (raw) => typeof raw === "string" && raw ? raw : null);
 
   return { data, body, rows, tags, createdDate, modifiedDate, title };
 }

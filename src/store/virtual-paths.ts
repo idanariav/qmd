@@ -1,6 +1,7 @@
 // Layer 1: Virtual path (qmd://) parsing and building
 
 import type { Database } from "../db.js";
+import type { NamedCollection } from "../collections.js";
 import { getCollectionByName, getStoreCollections } from "./collection-ops.js";
 import { resolve } from "./paths.js";
 
@@ -51,6 +52,28 @@ export function isVirtualPath(path: string): boolean {
   if (trimmed.startsWith('qmd:')) return true;
   if (trimmed.startsWith('//')) return true;
   return false;
+}
+
+/**
+ * Find which collection an absolute filesystem path belongs to, and derive
+ * the path relative to that collection's root.
+ */
+export function matchCollectionForPath(
+  collections: NamedCollection[],
+  filepath: string
+): { collectionName: string; relativePath: string } | null {
+  for (const coll of collections) {
+    if (!coll || !coll.path) continue;
+
+    if (filepath.startsWith(coll.path + '/') || filepath === coll.path) {
+      const relativePath = filepath.startsWith(coll.path + '/')
+        ? filepath.slice(coll.path.length + 1)
+        : '';
+      return { collectionName: coll.name, relativePath };
+    }
+  }
+
+  return null;
 }
 
 export function resolveVirtualPath(db: Database, virtualPath: string): string | null {

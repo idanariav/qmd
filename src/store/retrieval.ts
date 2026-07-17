@@ -356,7 +356,19 @@ export function findByFilter(
     ${limitClause}
   `;
 
-  return db.prepare(sql).all(...params) as FindResult[];
+  try {
+    return db.prepare(sql).all(...params) as FindResult[];
+  } catch (err) {
+    if (err instanceof Error && /no such function:\s*REGEXP/i.test(err.message)) {
+      throw new Error(
+        "Regex filters (~/pattern/) require a SQLite driver with custom-function support " +
+        "(e.g. better-sqlite3 under Node.js) — Bun's built-in bun:sqlite does not expose " +
+        "db.function() and cannot run them. Remove the ~/regex/ operator, or run this " +
+        "command under Node.js instead of Bun."
+      );
+    }
+    throw err;
+  }
 }
 
 export function getDocumentToc(db: Database, filepath: string): TocResult[] | null {

@@ -59,17 +59,21 @@ function param(ctx: Ctx, value: string | number | null): string {
   return "?";
 }
 
-const DATE_FIELDS = new Set(["created", "modified", "created_at", "modified_at"]);
-const DOC_FIELDS: Record<string, string> = {
-  created:    "d.created_at",
-  modified:   "d.modified_at",
-  created_at: "d.created_at",
-  modified_at: "d.modified_at",
-  title:      "d.title",
-  word_count: "d.word_count",
-  path:       "d.path",
-  collection: "d.collection",
+const DOC_FIELDS: Record<string, { col: string; isDate?: boolean }> = {
+  created:     { col: "d.created_at", isDate: true },
+  modified:    { col: "d.modified_at", isDate: true },
+  created_at:  { col: "d.created_at", isDate: true },
+  modified_at: { col: "d.modified_at", isDate: true },
+  title:       { col: "d.title" },
+  word_count:  { col: "d.word_count" },
+  path:        { col: "d.path" },
+  collection:  { col: "d.collection" },
 };
+
+/** SQL for "no document row exists with this frontmatter key at all." */
+function missingFrontmatterClause(field: string, ctx: Ctx): string {
+  return `NOT EXISTS (SELECT 1 FROM frontmatter fm WHERE fm.doc_id = d.id AND fm.key = ${param(ctx, field)})`;
+}
 
 function compileNode(node: FilterNode, ctx: Ctx): string {
   switch (node.type) {
@@ -81,7 +85,7 @@ function compileNode(node: FilterNode, ctx: Ctx): string {
 
     case "MISSING":
       // Field absent from frontmatter entirely
-      return `NOT EXISTS (SELECT 1 FROM frontmatter fm WHERE fm.doc_id = d.id AND fm.key = ${param(ctx, node.field)})`;
+      return missingFrontmatterClause(node.field, ctx);
 
     case "EMPTY":
       if (node.field === "section" || node.field === "sections") {
@@ -104,7 +108,7 @@ function compileNode(node: FilterNode, ctx: Ctx): string {
         return `NOT EXISTS (SELECT 1 FROM sections s WHERE s.doc_id = d.id AND s.level > 0)`;
       }
       // no:tag, no:property — absence of a frontmatter key
-      return `NOT EXISTS (SELECT 1 FROM frontmatter fm WHERE fm.doc_id = d.id AND fm.key = ${param(ctx, node.field)})`;
+      return missingFrontmatterClause(node.field, ctx);
   }
 }
 
@@ -156,8 +160,7 @@ function compileCmp(
 
   // ---- document-level fields (title, path, created, modified, word_count) ----
   if (field in DOC_FIELDS) {
-    const col = DOC_FIELDS[field]!;
-    const isDate = DATE_FIELDS.has(field);
+    const { col, isDate } = DOC_FIELDS[field]!;
     const resolvedValue = isDate ? resolveDate(value) : value;
 
     switch (op) {

@@ -2,6 +2,7 @@
 
 import type { Database } from "../db.js";
 import { getStoreCollections } from "./collection-ops.js";
+import { vectorsTableExists } from "./search-vec.js";
 
 export type CollectionInfo = {
   name: string;
@@ -83,7 +84,7 @@ export function getStatus(db: Database): IndexStatus {
 
   const totalDocs = (db.prepare(`SELECT COUNT(*) as c FROM documents WHERE active = 1`).get() as { c: number }).c;
   const needsEmbedding = getHashesNeedingEmbedding(db);
-  const hasVectors = !!db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='vectors_vec'`).get();
+  const hasVectors = vectorsTableExists(db);
 
   return {
     totalDocuments: totalDocs,

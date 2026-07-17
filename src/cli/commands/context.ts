@@ -20,6 +20,19 @@ import {
 import { getStore, getDb, closeDb, resyncConfig } from "../store-access.js";
 import { c } from "../utils.js";
 
+/** Normalize a context-command path argument to an absolute filesystem path: `.`/`./` → pwd, `~/` → home, relative → resolved against pwd. Leaves `qmd://` virtual paths untouched. */
+function normalizeFsPath(pathArg: string): string {
+  let fsPath = pathArg;
+  if (fsPath === '.' || fsPath === './') {
+    fsPath = getPwd();
+  } else if (fsPath.startsWith('~/')) {
+    fsPath = homedir() + fsPath.slice(1);
+  } else if (!fsPath.startsWith('/') && !fsPath.startsWith('qmd://')) {
+    fsPath = resolve(getPwd(), fsPath);
+  }
+  return fsPath;
+}
+
 export function detectCollectionFromPath(db: Database, fsPath: string): { collectionName: string; relativePath: string } | null {
   const realPath = getRealPath(fsPath);
   const allCollections = yamlListCollections();
@@ -57,14 +70,7 @@ export async function contextAdd(pathArg: string | undefined, contextText: strin
     return;
   }
 
-  let fsPath = pathArg || '.';
-  if (fsPath === '.' || fsPath === './') {
-    fsPath = getPwd();
-  } else if (fsPath.startsWith('~/')) {
-    fsPath = homedir() + fsPath.slice(1);
-  } else if (!fsPath.startsWith('/') && !fsPath.startsWith('qmd://')) {
-    fsPath = resolve(getPwd(), fsPath);
-  }
+  const fsPath = normalizeFsPath(pathArg || '.');
 
   if (isVirtualPath(fsPath)) {
     const parsed = parseVirtualPath(fsPath);
@@ -168,14 +174,7 @@ export function contextRemove(pathArg: string): void {
     return;
   }
 
-  let fsPath = pathArg;
-  if (fsPath === '.' || fsPath === './') {
-    fsPath = getPwd();
-  } else if (fsPath.startsWith('~/')) {
-    fsPath = homedir() + fsPath.slice(1);
-  } else if (!fsPath.startsWith('/')) {
-    fsPath = resolve(getPwd(), fsPath);
-  }
+  const fsPath = normalizeFsPath(pathArg);
 
   const db = getDb();
   const detected = detectCollectionFromPath(db, fsPath);

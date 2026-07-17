@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { realpathSync, existsSync, readFileSync, unlinkSync, writeFileSync, openSync, closeSync, mkdirSync } from "fs";
 import { dirname, join as pathJoin } from "path";
 import { spawn as nodeSpawn } from "child_process";
-import { enableProductionMode, resolve, homedir, DEFAULT_MULTI_GET_MAX_BYTES, deleteLLMCache, cleanupOrphanedVectors, deleteInactiveDocuments, vacuumDatabase, getPwd, getRealPath } from "../store.js";
+import { enableProductionMode, resolve, DEFAULT_MULTI_GET_MAX_BYTES, deleteLLMCache, cleanupOrphanedVectors, deleteInactiveDocuments, vacuumDatabase, getPwd, getRealPath } from "../store.js";
 import { disposeDefaultLlamaCpp, pullModels, DEFAULT_EMBED_MODEL_URI, DEFAULT_MODEL_CACHE_DIR } from "../llm.js";
 
 import { parseCLI } from "./args.js";
@@ -17,12 +17,13 @@ import { getStore, getDb, closeDb, models, setIndexName } from "./store-access.j
 import { cursor } from "./utils.js";
 import { formatBytes } from "./utils.js";
 import { c } from "./utils.js";
+import { getMcpCacheDir, getMcpPidPath, requireCollection } from "./utils.js";
 
 import { showStatus, updateCollections } from "./commands/status.js";
 import { contextAdd, contextList, contextRemove } from "./commands/context.js";
 import { getDocument, multiGet, listFiles } from "./commands/get.js";
 import { collectionList, collectionAdd, collectionRemove, collectionRename } from "./commands/collection.js";
-import { indexFiles, vectorIndex, parseEmbedBatchOption } from "./commands/index-cmd.js";
+import { vectorIndex, parseEmbedBatchOption } from "./commands/index-cmd.js";
 import { search, vectorSearch, querySearch, filterSearch, resolveCollectionFilter } from "./commands/search.js";
 import { showSkill, installSkill, showHelp, showVersion } from "./commands/misc.js";
 
@@ -245,12 +246,8 @@ if (isMain) {
             console.error("  Omit command to clear it");
             process.exit(1);
           }
-          const { updateCollectionSettings, getCollection } = await import("../collections.js");
-          const col = getCollection(name);
-          if (!col) {
-            console.error(`Collection not found: ${name}`);
-            process.exit(1);
-          }
+          await requireCollection(name);
+          const { updateCollectionSettings } = await import("../collections.js");
           updateCollectionSettings(name, { update: cmd });
           if (cmd) {
             console.log(`✓ Set update command for '${name}': ${cmd}`);
@@ -268,12 +265,8 @@ if (isMain) {
             console.error(`  ${subcommand === 'include' ? 'Include' : 'Exclude'} collection in default queries`);
             process.exit(1);
           }
-          const { updateCollectionSettings, getCollection } = await import("../collections.js");
-          const col = getCollection(name);
-          if (!col) {
-            console.error(`Collection not found: ${name}`);
-            process.exit(1);
-          }
+          await requireCollection(name);
+          const { updateCollectionSettings } = await import("../collections.js");
           const include = subcommand === 'include';
           updateCollectionSettings(name, { includeByDefault: include });
           console.log(`✓ Collection '${name}' ${include ? 'included in' : 'excluded from'} default queries`);
@@ -287,12 +280,7 @@ if (isMain) {
             console.error("Usage: qmd collection show <name>");
             process.exit(1);
           }
-          const { getCollection } = await import("../collections.js");
-          const col = getCollection(name);
-          if (!col) {
-            console.error(`Collection not found: ${name}`);
-            process.exit(1);
-          }
+          const col = await requireCollection(name);
           console.log(`Collection: ${name}`);
           console.log(`  Path:     ${col.path}`);
           console.log(`  Pattern:  ${col.pattern}`);
@@ -345,7 +333,7 @@ if (isMain) {
       break;
 
     case "index":
-      await updateCollections();
+      await updateCollections(!!cli.values.pull);
       break;
 
     case "embed":
@@ -442,10 +430,8 @@ if (isMain) {
     case "mcp": {
       const sub = cli.args[0];
 
-      const cacheDir = process.env.XDG_CACHE_HOME
-        ? resolve(process.env.XDG_CACHE_HOME, "qmd")
-        : resolve(homedir(), ".cache", "qmd");
-      const pidPath = resolve(cacheDir, "mcp.pid");
+      const cacheDir = getMcpCacheDir();
+      const pidPath = getMcpPidPath();
 
       if (sub === "stop") {
         if (!existsSync(pidPath)) {

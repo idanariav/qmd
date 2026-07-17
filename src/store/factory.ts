@@ -160,11 +160,11 @@ export function createStore(dbPath?: string): Store {
     findDocumentByDocid: (docid: string) => findDocumentByDocid(db, docid),
 
     insertContent: (hash: string, content: string, createdAt: string) => insertContent(db, hash, content, createdAt),
-    insertDocument: (collectionName: string, path: string, title: string, hash: string, createdAt: string, modifiedAt: string) => insertDocument(db, collectionName, path, title, hash, createdAt, modifiedAt),
+    insertDocument: (collectionName: string, path: string, title: string, hash: string, createdAt: string, modifiedAt: string, originalPath?: string | null) => insertDocument(db, collectionName, path, title, hash, createdAt, modifiedAt, originalPath),
     findActiveDocument: (collectionName: string, path: string) => findActiveDocument(db, collectionName, path),
     findOrMigrateLegacyDocument: (collectionName: string, path: string) => findOrMigrateLegacyDocument(db, collectionName, path),
-    updateDocumentTitle: (documentId: number, title: string, modifiedAt: string) => updateDocumentTitle(db, documentId, title, modifiedAt),
-    updateDocument: (documentId: number, title: string, hash: string, modifiedAt: string) => updateDocument(db, documentId, title, hash, modifiedAt),
+    updateDocumentTitle: (documentId: number, title: string, modifiedAt: string, originalPath?: string | null) => updateDocumentTitle(db, documentId, title, modifiedAt, originalPath),
+    updateDocument: (documentId: number, title: string, hash: string, modifiedAt: string, originalPath?: string | null) => updateDocument(db, documentId, title, hash, modifiedAt, originalPath),
     deactivateDocument: (collectionName: string, path: string) => deactivateDocument(db, collectionName, path),
     getActiveDocumentPaths: (collectionName: string) => getActiveDocumentPaths(db, collectionName),
 

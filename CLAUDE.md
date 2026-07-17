@@ -6,6 +6,8 @@ Use Bun instead of Node.js (`bun` not `node`, `bun install` not `npm install`).
 
 When refactoring commands, for example renaming, adding/removing params - review the claude.md, relevant docs and README.md file to ensure no stale or outdated references remain.
 
+Known deferred work is tracked in [.claude/techdebt.md](.claude/techdebt.md) — check it for context before touching an area that might already have an open follow-up, and log new deferred items there when you intentionally punt on something.
+
 ## Commands
 
 ```sh

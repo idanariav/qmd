@@ -27,11 +27,12 @@ import {
   listCollections as yamlListCollections,
   setConfigIndexName,
 } from "../../collections.js";
-import { escapeXml } from "../formatter.js";
+import { formatDocuments } from "../formatter.js";
+import type { Database } from "../../db.js";
 import { getDb, closeDb, setIndexName } from "../store-access.js";
 import { c, formatBytes } from "../utils.js";
 import { detectCollectionFromPath } from "./context.js";
-import type { OutputFormat } from "../formatter.js";
+import type { OutputFormat, MultiGetFile } from "../formatter.js";
 
 interface GetDocumentOptions {
   fromLine?: number;
@@ -40,6 +41,18 @@ interface GetDocumentOptions {
   section?: string;
   stripCallouts?: boolean;
   noCodeblocks?: boolean;
+}
+
+type DocRow = { collectionName: string; path: string; originalPath: string | null; body: string };
+
+/** Look up a document row by an arbitrary WHERE clause over `documents d JOIN content`. */
+function lookupDoc(db: Database, whereClause: string, params: (string | number)[]): DocRow | null {
+  return db.prepare(`
+    SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
+    FROM documents d
+    JOIN content ON content.hash = d.hash
+    WHERE ${whereClause}
+  `).get(...params) as DocRow | null;
 }
 
 export function getDocument(filename: string, opts: GetDocumentOptions = {}): void {
@@ -84,21 +97,10 @@ export function getDocument(filename: string, opts: GetDocumentOptions = {}): vo
       process.exit(1);
     }
 
-    doc = db.prepare(`
-      SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-      FROM documents d
-      JOIN content ON content.hash = d.hash
-      WHERE d.collection = ? AND d.path = ? AND d.active = 1
-    `).get(parsed.collectionName, parsed.path) as typeof doc;
+    doc = lookupDoc(db, "d.collection = ? AND d.path = ? AND d.active = 1", [parsed.collectionName, parsed.path]);
 
     if (!doc) {
-      doc = db.prepare(`
-        SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-        FROM documents d
-        JOIN content ON content.hash = d.hash
-        WHERE d.collection = ? AND d.path LIKE ? AND d.active = 1
-        LIMIT 1
-      `).get(parsed.collectionName, `%${parsed.path}`) as typeof doc;
+      doc = lookupDoc(db, "d.collection = ? AND d.path LIKE ? AND d.active = 1 LIMIT 1", [parsed.collectionName, `%${parsed.path}`]);
     }
 
     virtualPath = inputPath;
@@ -114,34 +116,17 @@ export function getDocument(filename: string, opts: GetDocumentOptions = {}): vo
         `).get(possibleCollection) : null;
 
         if (collExists) {
-          doc = db.prepare(`
-            SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-            FROM documents d
-            JOIN content ON content.hash = d.hash
-            WHERE d.collection = ? AND d.path = ? AND d.active = 1
-          `).get(possibleCollection || "", possiblePath || "") as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
+          doc = lookupDoc(db, "d.collection = ? AND d.path = ? AND d.active = 1", [possibleCollection || "", possiblePath || ""]);
 
           if (!doc) {
-            doc = db.prepare(`
-              SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-              FROM documents d
-              JOIN content ON content.hash = d.hash
-              WHERE d.collection = ? AND d.path LIKE ? AND d.active = 1
-              LIMIT 1
-            `).get(possibleCollection || "", `%${possiblePath}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
+            doc = lookupDoc(db, "d.collection = ? AND d.path LIKE ? AND d.active = 1 LIMIT 1", [possibleCollection || "", `%${possiblePath}`]);
           }
 
           if (!doc) {
             try {
               const handelizedPath = handelize(possiblePath);
               if (handelizedPath !== possiblePath) {
-                doc = db.prepare(`
-                  SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-                  FROM documents d
-                  JOIN content ON content.hash = d.hash
-                  WHERE d.collection = ? AND d.path LIKE ? AND d.active = 1
-                  LIMIT 1
-                `).get(possibleCollection || "", `%${handelizedPath}`) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
+                doc = lookupDoc(db, "d.collection = ? AND d.path LIKE ? AND d.active = 1 LIMIT 1", [possibleCollection || "", `%${handelizedPath}`]);
               }
             } catch {
               // handelize can throw on invalid paths; ignore and fall through
@@ -167,23 +152,13 @@ export function getDocument(filename: string, opts: GetDocumentOptions = {}): vo
       const detected = detectCollectionFromPath(db, fsPath);
 
       if (detected) {
-        doc = db.prepare(`
-          SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-          FROM documents d
-          JOIN content ON content.hash = d.hash
-          WHERE d.collection = ? AND d.path = ? AND d.active = 1
-        `).get(detected.collectionName, detected.relativePath) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
+        doc = lookupDoc(db, "d.collection = ? AND d.path = ? AND d.active = 1", [detected.collectionName, detected.relativePath]);
 
         if (!doc) {
           try {
             const handelizedPath = handelize(detected.relativePath);
             if (handelizedPath !== detected.relativePath) {
-              doc = db.prepare(`
-                SELECT d.collection as collectionName, d.path, d.original_path as originalPath, content.doc as body
-                FROM documents d
-                JOIN content ON content.hash = d.hash
-                WHERE d.collection = ? AND d.path = ? AND d.active = 1
-              `).get(detected.collectionName, handelizedPath) as { collectionName: string; path: string; originalPath: string | null; body: string } | null;
+              doc = lookupDoc(db, "d.collection = ? AND d.path = ? AND d.active = 1", [detected.collectionName, handelizedPath]);
             }
           } catch {
             // ignore
@@ -455,63 +430,12 @@ export function multiGet(pattern: string, maxLines?: number, maxBytes: number = 
 
   closeDb();
 
-  if (format === "json") {
-    const output = results.map(r => ({
-      file: r.displayPath,
-      title: r.title,
-      ...(r.context && { context: r.context }),
-      ...(r.skipped ? { skipped: true, reason: r.skipReason } : { body: r.body }),
-    }));
-    console.log(JSON.stringify(output, null, 2));
-  } else if (format === "csv") {
-    const escapeField = (val: string | null | undefined): string => {
-      if (val === null || val === undefined) return "";
-      const str = String(val);
-      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-    console.log("file,title,context,skipped,body");
-    for (const r of results) {
-      console.log([r.displayPath, r.title, r.context, r.skipped ? "true" : "false", r.skipped ? r.skipReason : r.body].map(escapeField).join(","));
-    }
-  } else if (format === "files") {
-    for (const r of results) {
-      const ctx = r.context ? `,"${r.context.replace(/"/g, '""')}"` : "";
-      const status = r.skipped ? "[SKIPPED]" : "";
-      console.log(`${r.displayPath}${ctx}${status ? `,${status}` : ""}`);
-    }
-  } else if (format === "md") {
-    for (const r of results) {
-      console.log(`## ${r.displayPath}\n`);
-      if (r.title && r.title !== r.displayPath) console.log(`**Title:** ${r.title}\n`);
-      if (r.context) console.log(`**Context:** ${r.context}\n`);
-      if (r.skipped) {
-        console.log(`> ${r.skipReason}\n`);
-      } else {
-        console.log("```");
-        console.log(r.body);
-        console.log("```\n");
-      }
-    }
-  } else if (format === "xml") {
-    console.log('<?xml version="1.0" encoding="UTF-8"?>');
-    console.log("<documents>");
-    for (const r of results) {
-      console.log("  <document>");
-      console.log(`    <file>${escapeXml(r.displayPath)}</file>`);
-      console.log(`    <title>${escapeXml(r.title)}</title>`);
-      if (r.context) console.log(`    <context>${escapeXml(r.context)}</context>`);
-      if (r.skipped) {
-        console.log(`    <skipped>true</skipped>`);
-        console.log(`    <reason>${escapeXml(r.skipReason || "")}</reason>`);
-      } else {
-        console.log(`    <body>${escapeXml(r.body)}</body>`);
-      }
-      console.log("  </document>");
-    }
-    console.log("</documents>");
+  const mgFiles: MultiGetFile[] = results.map(r => r.skipped
+    ? { filepath: r.file, displayPath: r.displayPath, title: r.title, body: r.body, context: r.context, skipped: true, skipReason: r.skipReason || "" }
+    : { filepath: r.file, displayPath: r.displayPath, title: r.title, body: r.body, context: r.context, skipped: false });
+
+  if (format === "json" || format === "csv" || format === "files" || format === "md" || format === "xml") {
+    console.log(formatDocuments(mgFiles, format));
   } else {
     for (const r of results) {
       console.log(`\n${'='.repeat(60)}`);

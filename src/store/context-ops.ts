@@ -1,17 +1,18 @@
 // Layer 2: Context operations — per-collection and global context management
 
 import type { Database } from "../db.js";
+import type { NamedCollection } from "../collections.js";
 import {
   getStoreCollections, getStoreCollection, getStoreGlobalContext,
-  getStoreContexts, updateStoreContext, removeStoreContext, setStoreGlobalContext,
+  getStoreContexts, removeStoreContext, setStoreGlobalContext,
 } from "./collection-ops.js";
-import { parseVirtualPath } from "./virtual-paths.js";
+import { parseVirtualPath, matchCollectionForPath } from "./virtual-paths.js";
 
-export function getContextForPath(db: Database, collectionName: string, path: string): string | null {
-  const coll = getStoreCollection(db, collectionName);
-
-  if (!coll) return null;
-
+/**
+ * Collect the global context plus any collection-level contexts whose path
+ * prefix matches `path`, ordered from least to most specific (longest wins).
+ */
+function collectContexts(db: Database, coll: NamedCollection, path: string): string | null {
   const contexts: string[] = [];
 
   const globalCtx = getStoreGlobalContext(db);
@@ -40,6 +41,13 @@ export function getContextForPath(db: Database, collectionName: string, path: st
   return contexts.length > 0 ? contexts.join('\n\n') : null;
 }
 
+export function getContextForPath(db: Database, collectionName: string, path: string): string | null {
+  const coll = getStoreCollection(db, collectionName);
+  if (!coll) return null;
+
+  return collectContexts(db, coll, path);
+}
+
 export function getContextForFile(db: Database, filepath: string): string | null {
   if (!filepath) return null;
 
@@ -53,19 +61,10 @@ export function getContextForFile(db: Database, filepath: string): string | null
     collectionName = parsedVirtual.collectionName;
     relativePath = parsedVirtual.path;
   } else {
-    for (const coll of collections) {
-      if (!coll || !coll.path) continue;
-
-      if (filepath.startsWith(coll.path + '/') || filepath === coll.path) {
-        collectionName = coll.name;
-        relativePath = filepath.startsWith(coll.path + '/')
-          ? filepath.slice(coll.path.length + 1)
-          : '';
-        break;
-      }
-    }
-
-    if (!collectionName || relativePath === null) return null;
+    const match = matchCollectionForPath(collections, filepath);
+    if (!match) return null;
+    collectionName = match.collectionName;
+    relativePath = match.relativePath;
   }
 
   const coll = getStoreCollection(db, collectionName);
@@ -80,41 +79,7 @@ export function getContextForFile(db: Database, filepath: string): string | null
 
   if (!doc) return null;
 
-  const contexts: string[] = [];
-
-  const globalCtx = getStoreGlobalContext(db);
-  if (globalCtx) {
-    contexts.push(globalCtx);
-  }
-
-  if (coll.context) {
-    const normalizedPath = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
-
-    const matchingContexts: { prefix: string; context: string }[] = [];
-    for (const [prefix, context] of Object.entries(coll.context)) {
-      const normalizedPrefix = prefix.startsWith("/") ? prefix : `/${prefix}`;
-      if (normalizedPath.startsWith(normalizedPrefix)) {
-        matchingContexts.push({ prefix: normalizedPrefix, context });
-      }
-    }
-
-    matchingContexts.sort((a, b) => a.prefix.length - b.prefix.length);
-
-    for (const match of matchingContexts) {
-      contexts.push(match.context);
-    }
-  }
-
-  return contexts.length > 0 ? contexts.join('\n\n') : null;
-}
-
-export function insertContext(db: Database, collectionId: number, pathPrefix: string, context: string): void {
-  const coll = db.prepare(`SELECT name FROM collections WHERE id = ?`).get(collectionId) as { name: string } | null;
-  if (!coll) {
-    throw new Error(`Collection with id ${collectionId} not found`);
-  }
-
-  updateStoreContext(db, coll.name, pathPrefix, context);
+  return collectContexts(db, coll, relativePath);
 }
 
 export function deleteContext(db: Database, collectionName: string, pathPrefix: string): number {

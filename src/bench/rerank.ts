@@ -6,9 +6,9 @@
  * Reports device, parallelism, memory, VRAM, and throughput.
  *
  * Usage:
- *   bun src/bench-rerank.ts              # full benchmark
- *   bun src/bench-rerank.ts --quick      # quick smoke test (10 docs, 1 iteration)
- *   bun src/bench-rerank.ts --docs 100   # custom doc count
+ *   bun src/bench/rerank.ts              # full benchmark
+ *   bun src/bench/rerank.ts --quick      # quick smoke test (10 docs, 1 iteration)
+ *   bun src/bench/rerank.ts --docs 100   # custom doc count
  */
 
 import {

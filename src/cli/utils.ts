@@ -1,8 +1,32 @@
 // CLI shared utilities — colors, cursor, progress bar, formatting helpers
 
 import type { Database } from "../db.js";
-import { getIndexHealth } from "../store.js";
+import { getIndexHealth, resolve, homedir } from "../store.js";
 import type { ChunkStrategy } from "../store.js";
+import type { NamedCollection } from "../collections.js";
+
+/** Look up a YAML-configured collection by name, or print an error and exit(1) if it doesn't exist. */
+export async function requireCollection(name: string): Promise<NamedCollection> {
+  const { getCollection } = await import("../collections.js");
+  const col = getCollection(name);
+  if (!col) {
+    console.error(`Collection not found: ${name}`);
+    process.exit(1);
+  }
+  return col;
+}
+
+/** Directory used for the MCP daemon's PID file, log file, etc. */
+export function getMcpCacheDir(): string {
+  return process.env.XDG_CACHE_HOME
+    ? resolve(process.env.XDG_CACHE_HOME, "qmd")
+    : resolve(homedir(), ".cache", "qmd");
+}
+
+/** Path to the PID file used to track a backgrounded `qmd mcp --http --daemon` process. */
+export function getMcpPidPath(): string {
+  return resolve(getMcpCacheDir(), "mcp.pid");
+}
 
 export const useColor = !process.env.NO_COLOR && process.stdout.isTTY;
 

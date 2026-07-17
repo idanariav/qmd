@@ -24,6 +24,7 @@ import {
 import {
   formatSearchResults,
   escapeCSV,
+  escapeXml,
 } from "../formatter.js";
 import type { OutputFormat } from "../formatter.js";
 import { getStore, getDb, getActiveIndexName, closeDb } from "../store-access.js";
@@ -305,12 +306,12 @@ function outputResults(results: OutputRow[], query: string, opts: OutputOptions)
     }
   } else if (opts.format === "xml") {
     for (const row of filtered) {
-      const titleAttr = row.title ? ` title="${row.title.replace(/"/g, '&quot;')}"` : "";
-      const contextAttr = row.context ? ` context="${row.context.replace(/"/g, '&quot;')}"` : "";
+      const titleAttr = row.title ? ` title="${escapeXml(row.title)}"` : "";
+      const contextAttr = row.context ? ` context="${escapeXml(row.context)}"` : "";
       const docid = row.docid || (row.hash ? row.hash.slice(0, 6) : "");
       let content = opts.full ? row.body : extractSnippet(row.body, query, 500, row.chunkPos, undefined, opts.intent).snippet;
       if (opts.lineNumbers) content = addLineNumbers(content);
-      console.log(`<file docid="#${docid}" name="${toQmdPath(row.displayPath)}"${titleAttr}${contextAttr}>\n${content}\n</file>\n`);
+      console.log(`<file docid="#${docid}" name="${escapeXml(toQmdPath(row.displayPath))}"${titleAttr}${contextAttr}>\n${escapeXml(content)}\n</file>\n`);
     }
   } else {
     // CSV format
@@ -392,12 +393,7 @@ export async function vectorSearch(query: string, opts: OutputOptions, _model: s
       },
     });
 
-    if (collectionNames.length > 1) {
-      results = results.filter(r => {
-        const prefixes = collectionNames.map(n => `qmd://${n}/`);
-        return prefixes.some(p => r.file.startsWith(p));
-      });
-    }
+    results = filterByCollections(results, collectionNames);
 
     closeDb();
 
@@ -516,12 +512,7 @@ export async function querySearch(query: string, opts: OutputOptions, _embedMode
       });
     }
 
-    if (collectionNames.length > 1) {
-      results = results.filter(r => {
-        const prefixes = collectionNames.map(n => `qmd://${n}/`);
-        return prefixes.some(p => r.file.startsWith(p));
-      });
-    }
+    results = filterByCollections(results, collectionNames);
 
     closeDb();
 

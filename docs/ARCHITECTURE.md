@@ -45,7 +45,7 @@ Filesystem → [INDEXING] → SQLite metadata + FTS
 - `content` — content-addressable store (hash → raw text)
 - `documents_fts` — FTS5 full-text index (Porter tokenizer)
 - `vectors_vec` — sqlite-vec virtual table for nearest-neighbor search
-- `content_vectors` — embedding metadata (hash, seq, model, embedded_at)
+- `content_vectors` — embedding metadata (hash, seq, model, embedded_at, plus `pos` — the chunk's char offset, used for snippet positioning)
 
 **Metadata:**
 - `frontmatter` — key/value pairs extracted from YAML (arrays exploded to rows)
@@ -57,7 +57,7 @@ Filesystem → [INDEXING] → SQLite metadata + FTS
 **Config & Cache:**
 - `store_collections` — collection config synced from YAML
 - `store_config` — key/value metadata (global_context, config_hash)
-- `llm_cache` — cached LLM responses keyed by (query + model + intent)
+- `llm_cache` — cached LLM responses (expandQuery, rerank), keyed by a SHA-256 hash over an operation-specific `(url, body)` pair — `expandQuery` hashes `{query, model, intent}`, `rerank` hashes `{query, model, chunk}` per chunk
 
 ## Key Paths
 

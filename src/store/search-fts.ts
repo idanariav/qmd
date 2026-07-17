@@ -3,6 +3,7 @@
 import type { Database } from "../db.js";
 import { getDocid } from "./documents.js";
 import { getContextForFile } from "./context-ops.js";
+import { parseVirtualPath } from "./virtual-paths.js";
 import type { SearchResult } from "./documents.js";
 
 export function sanitizeFTS5Term(term: string): string {
@@ -145,7 +146,7 @@ export function searchFTS(db: Database, query: string, limit: number = 20, colle
 
   const rows = db.prepare(sql).all(...params) as { filepath: string; display_path: string; title: string; body: string; hash: string; bm25_score: number }[];
   return rows.map(row => {
-    const coll = row.filepath.split('//')[1]?.split('/')[0] || "";
+    const coll = parseVirtualPath(row.filepath)?.collectionName || "";
     const score = Math.abs(row.bm25_score) / (1 + Math.abs(row.bm25_score));
     return {
       filepath: row.filepath,

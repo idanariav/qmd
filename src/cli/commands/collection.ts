@@ -4,7 +4,8 @@ import {
   listCollections,
   removeCollection,
   renameCollection,
-  DEFAULT_GLOB,
+  reindexCollection,
+  getHashesNeedingEmbedding,
 } from "../../store.js";
 import {
   getCollection as getCollectionFromYaml,
@@ -13,11 +14,8 @@ import {
   renameCollection as yamlRenameCollectionFn,
 } from "../../collections.js";
 import type { SectionFilter } from "../../collections.js";
-import { getDb, closeDb, resyncConfig } from "../store-access.js";
+import { getStore, getDb, closeDb, resyncConfig } from "../store-access.js";
 import { c, formatTimeAgo } from "../utils.js";
-import { indexFiles } from "./index-cmd.js";
-
-export { DEFAULT_GLOB };
 
 export function collectionList(): void {
   const db = getDb();
@@ -83,7 +81,20 @@ export async function collectionAdd(pwd: string, globPattern: string, name?: str
 
   console.log(`Creating collection '${collName}'...`);
   const newColl = getCollectionFromYaml(collName);
-  await indexFiles(pwd, globPattern, collName, false, newColl?.ignore);
+  console.log(`Collection: ${pwd} (${globPattern})`);
+  const storeInstance = getStore();
+  const result = await reindexCollection(storeInstance, pwd, globPattern, collName, {
+    ignorePatterns: newColl?.ignore,
+    section: newColl?.section,
+  });
+  console.log(`Indexed: ${result.indexed} new, ${result.updated} updated, ${result.unchanged} unchanged, ${result.removed} removed`);
+  if (result.orphanedCleaned > 0) {
+    console.log(`Cleaned up ${result.orphanedCleaned} orphaned content hash(es)`);
+  }
+  const needsEmbedding = getHashesNeedingEmbedding(storeInstance.db);
+  if (needsEmbedding > 0) {
+    console.log(`Run 'qmd embed' to update embeddings (${needsEmbedding} unique hashes need vectors)`);
+  }
   console.log(`${c.green}✓${c.reset} Collection '${collName}' created successfully`);
 }
 

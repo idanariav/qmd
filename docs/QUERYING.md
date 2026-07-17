@@ -67,6 +67,10 @@ Metadata-only filter search. No embeddings, no LLM.
 
 **Operators:** `=`, `~=` (contains), `>`, `<`, `~/regex/`, `missing:`, `empty:`, `no:headings`, `no:level=N`
 
+> `~/regex/` requires a SQLite driver with custom-function support (e.g. better-sqlite3 under
+> Node.js). Bun's built-in `bun:sqlite` doesn't expose `db.function()`, so regex filters aren't
+> available when running under Bun — use `~=` (contains) instead, or run under Node.js.
+
 **Boolean logic:** AND, OR, NOT, parentheses
 
 For full grammar see [SYNTAX.md](SYNTAX.md).
