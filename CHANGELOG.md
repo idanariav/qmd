@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+
+- Bumped `tsx` (4.21.0 → 4.23.1) and `vitest` (3.2.4 → 3.2.7) devDependencies to pull in patched transitive `esbuild`/`vite` versions, resolving all `npm audit` findings (esbuild arbitrary file read, Vitest UI critical RCE, and transitive hono/vite/simple-git/tar/js-yaml/postcss/qs/ip-address/fast-uri advisories). Dev-only; no runtime/published-package impact.
+
 ## [2.4.0] - 2026-07-18
 
 ### Removed
