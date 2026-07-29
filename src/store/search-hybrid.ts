@@ -211,12 +211,18 @@ async function finalizeCandidates(
       body: candidate?.body || "",
       bestChunk,
       bestChunkPos,
-      score: blendedScore,
+      // The blend (dominated by RRF rank position) orders results, but is a poor
+      // proxy for relevance on its own — rank 1 always starts from a rrfWeight
+      // floor (up to 0.75) regardless of whether the reranker actually agrees.
+      // The raw reranker score is what's reported and filtered on, since it's
+      // the only signal that reflects actual query/document relevance.
+      score: r.score,
+      sortScore: blendedScore,
       context: store.getContextForFile(r.file),
       docid: docidMap.get(r.file) || "",
       ...(explainData ? { explain: explainData } : {}),
     };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a, b) => b.sortScore - a.sortScore);
 
   const seenFiles = new Set<string>();
   return blended
@@ -226,7 +232,8 @@ async function finalizeCandidates(
       return true;
     })
     .filter(r => r.score >= minScore)
-    .slice(0, limit);
+    .slice(0, limit)
+    .map(({ sortScore, ...r }) => r);
 }
 
 export async function hybridQuery(

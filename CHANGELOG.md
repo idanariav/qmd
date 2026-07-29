@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `hsearch`/`structuredSearch` reported score was dominated by RRF rank position, not actual relevance — the top-ranked candidate always started from a 0.75 floor regardless of what the reranker thought of it, so unrelated/nonsense queries could show a confident-looking top score (e.g. ~88%) with no real match. The reported/filtered score is now the raw reranker score (the only signal that reflects actual query/document relevance); the RRF blend is still used internally to order results.
+
 ### Security
 
 - Bumped `tsx` (4.21.0 → 4.23.1) and `vitest` (3.2.4 → 3.2.7) devDependencies to pull in patched transitive `esbuild`/`vite` versions, resolving all `npm audit` findings (esbuild arbitrary file read, Vitest UI critical RCE, and transitive hono/vite/simple-git/tar/js-yaml/postcss/qs/ip-address/fast-uri advisories). Dev-only; no runtime/published-package impact.
