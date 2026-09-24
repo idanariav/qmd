@@ -12,6 +12,7 @@ import {
   parseVirtualPath,
   buildVirtualPath,
   resolveVirtualPath,
+  resolveOriginalPaths,
   DEFAULT_EMBED_MODEL,
   DEFAULT_RERANK_MODEL,
 } from "../../store.js";
@@ -198,24 +199,30 @@ function outputResults(results: OutputRow[], query: string, opts: OutputOptions)
   };
 
   if (opts.format === "json") {
+    const realPaths = resolveOriginalPaths(getDb(), filtered.map(r => r.displayPath));
     const output = filtered.map(row => {
       const docid = row.docid || (row.hash ? row.hash.slice(0, 6) : undefined);
       let body = opts.full ? row.body : undefined;
       const snippetInfo = !opts.full ? extractSnippet(row.body, query, 300, row.chunkPos, undefined, opts.intent) : undefined;
       let snippet = snippetInfo?.snippet;
+      let snippetText = snippetInfo?.snippetText;
       if (opts.lineNumbers) {
         if (body) body = addLineNumbers(body);
         if (snippet) snippet = addLineNumbers(snippet);
+        if (snippetText) snippetText = addLineNumbers(snippetText, snippetInfo!.startLine);
       }
+      const real = realPaths.get(row.displayPath);
       return {
         ...(docid && { docid: `#${docid}` }),
         score: Math.round(row.score * 100) / 100,
         file: toQmdPath(row.displayPath),
+        ...(real && { path: real.path, collection: real.collection }),
         ...(snippetInfo && { line: snippetInfo.line }),
         title: row.title,
         ...(row.context && { context: row.context }),
         ...(body && { body }),
         ...(snippet && { snippet }),
+        ...(snippetText && { snippet_text: snippetText }),
         ...(opts.explain && row.explain && { explain: row.explain }),
       };
     });
@@ -563,6 +570,8 @@ export function filterSearch(filterExpr: string, opts: OutputOptions): void {
   if (opts.format === "json") {
     console.log(JSON.stringify(results.map(r => ({
       file: `qmd://${r.collection}/${r.path}`,
+      path: r.original_path || r.path,
+      collection: r.collection,
       title: r.title,
       modified: r.modified_at?.slice(0, 10) ?? null,
       word_count: r.word_count,

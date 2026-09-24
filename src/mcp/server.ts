@@ -39,10 +39,13 @@ import { enableProductionMode } from "../store.js";
 type SearchResultItem = {
   docid: string;  // Short docid (#abc123) for quick reference
   file: string;
+  path?: string;        // Real collection-relative file path (accepted by get)
+  collection?: string;
   title: string;
   score: number;
   context: string | null;
   snippet: string;
+  snippet_text: string; // Snippet without the @@ hunk header
 };
 
 type StatusResult = {
@@ -340,15 +343,19 @@ Intent-aware lex (C++ performance, not sports):
         || searches.find(s => s.type === 'vec')?.query
         || searches[0]?.query || "";
 
+      const realPaths = store.internal.resolveOriginalPaths(results.map(r => r.displayPath));
       const filtered: SearchResultItem[] = results.map(r => {
-        const { line, snippet } = extractSnippet(r.bestChunk, primaryQuery, 300, undefined, undefined, intent);
+        const { line, snippet, snippetText } = extractSnippet(r.bestChunk, primaryQuery, 300, undefined, undefined, intent);
+        const real = realPaths.get(r.displayPath);
         return {
           docid: `#${r.docid}`,
           file: r.displayPath,
+          ...(real && { path: real.path, collection: real.collection }),
           title: r.title,
           score: Math.round(r.score * 100) / 100,
           context: r.context,
           snippet: addLineNumbers(snippet, line),
+          snippet_text: snippetText,
         };
       });
 
@@ -817,15 +824,19 @@ export async function startMcpHttpServer(port: number, options?: { quiet?: boole
           || params.searches.find((s: any) => s.type === 'vec')?.query
           || params.searches[0]?.query || "";
 
+        const realPaths = store.internal.resolveOriginalPaths(results.map(r => r.displayPath));
         const formatted = results.map(r => {
-          const { line, snippet } = extractSnippet(r.bestChunk, primaryQuery, 300);
+          const { line, snippet, snippetText } = extractSnippet(r.bestChunk, primaryQuery, 300);
+          const real = realPaths.get(r.displayPath);
           return {
             docid: `#${r.docid}`,
             file: r.displayPath,
+            ...(real && { path: real.path, collection: real.collection }),
             title: r.title,
             score: Math.round(r.score * 100) / 100,
             context: r.context,
             snippet: addLineNumbers(snippet, line),
+            snippet_text: snippetText,
           };
         });
 

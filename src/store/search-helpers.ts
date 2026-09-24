@@ -18,6 +18,10 @@ export type SnippetResult = {
   linesBefore: number;
   linesAfter: number;
   snippetLines: number;
+  /** Snippet body without the `@@` hunk header. */
+  snippetText: string;
+  /** 1-based line where snippetText begins. */
+  startLine: number;
 };
 
 export const INTENT_WEIGHT_SNIPPET = 0.3;
@@ -118,6 +122,8 @@ export function extractSnippet(
     linesBefore,
     linesAfter,
     snippetLines: snippetLineCount,
+    snippetText,
+    startLine: absoluteStart,
   };
 }
 

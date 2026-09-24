@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `--json` results from `hsearch`/`tsearch`/`vsearch`/`fsearch` now include `path` (the real collection-relative file path, original casing/spaces — accepted unchanged by `qmd get`) and `collection`, alongside the existing `file` `qmd://` URI. Search results from the MCP `hsearch` tool and HTTP `/query` gain the same fields.
+- `snippet_text` field in JSON/MCP search results: the snippet without the `@@ -N,M @@ (… before, … after)` hunk header. `snippet` is unchanged.
+
 ### Fixed
 
 - `hsearch`/`structuredSearch` reported score was dominated by RRF rank position, not actual relevance — the top-ranked candidate always started from a 0.75 floor regardless of what the reranker thought of it, so unrelated/nonsense queries could show a confident-looking top score (e.g. ~88%) with no real match. The reported/filtered score is now the raw reranker score (the only signal that reflects actual query/document relevance); the RRF blend is still used internally to order results.

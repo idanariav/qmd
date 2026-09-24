@@ -1054,6 +1054,35 @@ describe("search output formats", () => {
     expect(result.file).not.toMatch(/^\/home\//);
   });
 
+  test("search --json includes real path, collection and header-free snippet_text (spaces, nested dirs)", async () => {
+    const env = await createIsolatedTestEnv("json-real-path");
+    const vault = join(testDir, `vault-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    await mkdir(join(vault, "Deep Dir", "Sub Dir"), { recursive: true });
+    await writeFile(join(vault, "Deep Dir", "Sub Dir", "Chronic stress is harmful.md"),
+      "# Chronic stress is harmful\n\nChronic stress damages the body over time.\n");
+    const opts = { dbPath: env.dbPath, configDir: env.configDir };
+    expect((await runQmd(["collection", "add", vault, "--name", "claims"], opts)).exitCode).toBe(0);
+
+    for (const cmd of ["tsearch", "fsearch"]) {
+      const args = cmd === "tsearch" ? ["tsearch", "stress"] : ["fsearch", 'title ~= "stress"'];
+      const { stdout, exitCode } = await runQmd([...args, "-c", "claims", "--json"], opts);
+      expect(exitCode).toBe(0);
+      const [r] = JSON.parse(stdout);
+      expect(r.file).toBe("qmd://claims/Deep-Dir/Sub-Dir/Chronic-stress-is-harmful.md");
+      expect(r.path).toBe("Deep Dir/Sub Dir/Chronic stress is harmful.md");
+      expect(r.collection).toBe("claims");
+      if (cmd === "tsearch") {
+        expect(r.snippet).toMatch(/^@@ /);
+        expect(r.snippet_text).not.toContain("@@");
+        expect(r.snippet_text).toContain("stress");
+      }
+      // path is accepted unchanged by qmd get
+      const got = await runQmd(["get", r.path], opts);
+      expect(got.exitCode).toBe(0);
+      expect(got.stdout).toContain("Chronic stress damages the body");
+    }
+  });
+
   test("custom-index search links include ?index= and can be passed back to qmd get", async () => {
     const env = await createIsolatedTestEnv("custom-index-links");
     const customColl = "fixtures-alt";

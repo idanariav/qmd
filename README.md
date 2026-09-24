@@ -194,7 +194,7 @@ qmd hsearch $'lex: auth token\nvec: how users log in'   # structured sub-queries
 | `-C, --candidate-limit <n>` | Max candidates to rerank (default: 40, lower = faster) |
 | `--intent <text>` | Domain hint to improve query expansion and disambiguate results |
 | `--line-numbers` | Include line numbers in output |
-| `--json` / `--csv` / `--md` / `--xml` / `--files` | Output format |
+| `--json` / `--csv` / `--md` / `--xml` / `--files` | Output format. JSON hits: `docid, score, file` (`qmd://` URI), `path` (real collection-relative path, pass to `qmd get`), `collection, line, title, context, snippet` (with `@@` hunk header), `snippet_text` (same, header-free) |
 
 #### `tsearch` — Text search
 

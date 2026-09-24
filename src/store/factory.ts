@@ -23,7 +23,7 @@ import { searchFTS } from "./search-fts.js";
 import { searchVec, getHashesForEmbedding, clearAllEmbeddings, insertEmbedding } from "./search-vec.js";
 import { expandQuery, rerank } from "./search-ops.js";
 import {
-  findDocument, getDocumentBody, findDocuments, findByFilter, getDocumentToc,
+  findDocument, resolveOriginalPaths, getDocumentBody, findDocuments, findByFilter, getDocumentToc,
 } from "./retrieval.js";
 import {
   findSimilarFiles, matchFilesByGlob, findDocumentByDocid,
@@ -82,6 +82,7 @@ export type Store = {
   findDocuments: (pattern: string, options?: { includeBody?: boolean; maxBytes?: number }) => { docs: MultiGetResult[]; errors: string[] };
 
   findByFilter: (filterExpr: string, options?: { collection?: string; limit?: number }) => FindResult[];
+  resolveOriginalPaths: (displayPaths: string[]) => Map<string, { collection: string; path: string }>;
   getDocumentToc: (filepath: string) => TocResult[] | null;
 
   findSimilarFiles: (query: string, maxDistance?: number, limit?: number) => string[];
@@ -153,6 +154,7 @@ export function createStore(dbPath?: string): Store {
     findDocuments: (pattern: string, options?: { includeBody?: boolean; maxBytes?: number }) => findDocuments(db, pattern, options),
 
     findByFilter: (filterExpr: string, options?: { collection?: string; limit?: number }) => findByFilter(db, filterExpr, options),
+    resolveOriginalPaths: (displayPaths: string[]) => resolveOriginalPaths(db, displayPaths),
     getDocumentToc: (filepath: string) => getDocumentToc(db, filepath),
 
     findSimilarFiles: (query: string, maxDistance?: number, limit?: number) => findSimilarFiles(db, query, maxDistance, limit),

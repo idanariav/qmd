@@ -23,6 +23,8 @@ export interface FindResult {
   created_at: string;
   modified_at: string;
   word_count: number;
+  /** Real collection-relative file path (null for legacy rows). */
+  original_path: string | null;
 }
 
 export interface TocResult {
@@ -60,6 +62,31 @@ export function resolveRawContent(
   } catch {
     return null;
   }
+}
+
+/**
+ * Map search-result display paths (`<collection>/<slugified-path>`) to the real
+ * collection-relative file path (as indexed, with original casing/spaces) — the
+ * form `qmd get` accepts. Falls back to the slugified path for legacy rows
+ * that have no original_path.
+ */
+export function resolveOriginalPaths(
+  db: Database,
+  displayPaths: string[]
+): Map<string, { collection: string; path: string }> {
+  const stmt = db.prepare(
+    `SELECT original_path FROM documents WHERE collection = ? AND path = ? AND active = 1`
+  );
+  const out = new Map<string, { collection: string; path: string }>();
+  for (const displayPath of displayPaths) {
+    const idx = displayPath.indexOf('/');
+    if (idx <= 0) continue;
+    const collection = displayPath.slice(0, idx);
+    const path = displayPath.slice(idx + 1);
+    const row = stmt.get(collection, path) as { original_path: string | null } | null;
+    out.set(displayPath, { collection, path: row?.original_path || path });
+  }
+  return out;
 }
 
 export function findDocument(
@@ -349,7 +376,7 @@ export function findByFilter(
   const limitClause = options.limit ? `LIMIT ${options.limit}` : "LIMIT 100";
 
   const sql = `
-    SELECT d.collection, d.path, d.title, d.created_at, d.modified_at, d.word_count
+    SELECT d.collection, d.path, d.original_path, d.title, d.created_at, d.modified_at, d.word_count
     FROM documents d
     WHERE d.active = 1 ${collectionClause} AND (${where})
     ORDER BY d.modified_at DESC
