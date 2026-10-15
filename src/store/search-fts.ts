@@ -108,6 +108,7 @@ export function validateLexQuery(query: string): string | null {
   return null;
 }
 
+// bm25 column weights: filepath, title, aliases, description, body
 export function searchFTS(db: Database, query: string, limit: number = 20, collectionName?: string): SearchResult[] {
   const ftsQuery = buildFTS5Query(query);
   if (!ftsQuery) return [];
@@ -117,7 +118,7 @@ export function searchFTS(db: Database, query: string, limit: number = 20, colle
 
   let sql = `
     WITH fts_matches AS (
-      SELECT rowid, bm25(documents_fts, 1.5, 4.0, 1.0) as bm25_score
+      SELECT rowid, bm25(documents_fts, 1.5, 4.0, 3.0, 1.5, 1.0) as bm25_score
       FROM documents_fts
       WHERE documents_fts MATCH ?
       ORDER BY bm25_score ASC

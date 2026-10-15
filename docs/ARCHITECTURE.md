@@ -43,8 +43,9 @@ Filesystem → [INDEXING] → SQLite metadata + FTS
 **Content & Search:**
 - `documents` — file registry (id, collection, path, hash, title, dates, active)
 - `content` — content-addressable store (hash → raw text)
-- `documents_fts` — FTS5 full-text index (Porter tokenizer)
-- `vectors_vec` — sqlite-vec virtual table for nearest-neighbor search
+- `documents_fts` — FTS5 full-text index (Porter tokenizer; filepath, title, aliases, description, body)
+- `doc_profiles` — per-document frontmatter aliases/description + embed state of its profile vector
+- `vectors_vec` — sqlite-vec virtual table for nearest-neighbor search (chunk vectors keyed `<hash>_<seq>`, profile vectors keyed `profile:<doc id>`)
 - `content_vectors` — embedding metadata (hash, seq, model, embedded_at, plus `pos` — the chunk's char offset, used for snippet positioning)
 
 **Metadata:**

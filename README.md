@@ -191,6 +191,7 @@ qmd hsearch $'lex: auth token\nvec: how users log in'   # structured sub-queries
 | `--full` | Include full document body in output |
 | `--explain` | Show per-result RRF + rerank score breakdown |
 | `--no-rerank` | Skip LLM reranking, use RRF scores only (faster on CPU) |
+| `--no-expand` | Skip LLM query expansion; search with the original query only (faster, more precise for short keyword/noun queries) |
 | `-C, --candidate-limit <n>` | Max candidates to rerank (default: 40, lower = faster) |
 | `--intent <text>` | Domain hint to improve query expansion and disambiguate results |
 | `--line-numbers` | Include line numbers in output |

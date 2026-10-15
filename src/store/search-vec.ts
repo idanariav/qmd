@@ -4,6 +4,7 @@ import type { Database } from "../db.js";
 import { getDocid } from "./documents.js";
 import { getContextForFile } from "./context-ops.js";
 import { parseVirtualPath } from "./virtual-paths.js";
+import { PROFILE_KEY_PREFIX, profileKey } from "./profiles.js";
 import type { SearchResult } from "./documents.js";
 import {
   getDefaultLlamaCpp, formatQueryForEmbedding, formatDocForEmbedding,
@@ -37,11 +38,12 @@ export async function searchVec(
   limit: number = 20,
   collectionName?: string,
   session?: ILLMSession,
-  precomputedEmbedding?: number[]
+  precomputedEmbedding?: number[],
+  llmOverride?: LlamaCpp
 ): Promise<SearchResult[]> {
   if (!vectorsTableExists(db)) return [];
 
-  const embedding = precomputedEmbedding ?? await getEmbedding(query, model, true, session);
+  const embedding = precomputedEmbedding ?? await getEmbedding(query, model, true, session, llmOverride);
   if (!embedding) return [];
 
   // IMPORTANT: Two-step query — sqlite-vec hangs indefinitely with JOINs.
@@ -58,7 +60,9 @@ export async function searchVec(
   const distanceMap = new Map(vecResults.map(r => [r.hash_seq, r.distance]));
 
   const placeholders = hashSeqs.map(() => '?').join(',');
-  let docSql = `
+  const collectionFilter = collectionName ? ` AND d.collection = ?` : '';
+  // Chunk vectors are keyed `<hash>_<seq>`; profile vectors (aliases/description) are keyed `profile:<doc id>`.
+  const docSql = `
     SELECT
       cv.hash || '_' || cv.seq as hash_seq,
       cv.hash,
@@ -70,14 +74,24 @@ export async function searchVec(
     FROM content_vectors cv
     JOIN documents d ON d.hash = cv.hash AND d.active = 1
     JOIN content ON content.hash = d.hash
-    WHERE cv.hash || '_' || cv.seq IN (${placeholders})
+    WHERE cv.hash || '_' || cv.seq IN (${placeholders})${collectionFilter}
+    UNION ALL
+    SELECT
+      '${PROFILE_KEY_PREFIX}' || d.id as hash_seq,
+      d.hash,
+      0 as pos,
+      'qmd://' || d.collection || '/' || d.path as filepath,
+      d.collection || '/' || d.path as display_path,
+      d.title,
+      content.doc as body
+    FROM documents d
+    JOIN content ON content.hash = d.hash
+    WHERE d.active = 1 AND '${PROFILE_KEY_PREFIX}' || d.id IN (${placeholders})${collectionFilter}
   `;
   const params: string[] = [...hashSeqs];
-
-  if (collectionName) {
-    docSql += ` AND d.collection = ?`;
-    params.push(collectionName);
-  }
+  if (collectionName) params.push(collectionName);
+  params.push(...hashSeqs);
+  if (collectionName) params.push(collectionName);
 
   const docRows = db.prepare(docSql).all(...params) as {
     hash_seq: string; hash: string; pos: number; filepath: string;
@@ -127,12 +141,27 @@ export function getHashesForEmbedding(db: Database): { hash: string; body: strin
   `).all() as { hash: string; body: string; path: string }[];
 }
 
+const RESET_PROFILE_EMBEDDINGS = `UPDATE doc_profiles SET embedded_hash = NULL, model = NULL, embedded_at = NULL`;
+
 export function clearAllEmbeddings(db: Database, collection?: string): void {
   if (!collection) {
     db.exec(`DELETE FROM content_vectors`);
     db.exec(`DROP TABLE IF EXISTS vectors_vec`);
+    db.exec(RESET_PROFILE_EMBEDDINGS);
     return;
   }
+
+  if (vectorsTableExists(db)) {
+    const delProfileVec = db.prepare(`DELETE FROM vectors_vec WHERE hash_seq = ?`);
+    const profileDocs = db.prepare(`
+      SELECT d.id FROM documents d JOIN doc_profiles p ON p.doc_id = d.id WHERE d.collection = ?
+    `).all(collection) as { id: number }[];
+    for (const row of profileDocs) delProfileVec.run(profileKey(row.id));
+  }
+  db.prepare(`
+    UPDATE doc_profiles SET embedded_hash = NULL, model = NULL, embedded_at = NULL
+    WHERE doc_id IN (SELECT id FROM documents WHERE collection = ?)
+  `).run(collection);
 
   const exclusiveHashesQuery = `
     SELECT DISTINCT d.hash
@@ -169,6 +198,7 @@ export function clearAllEmbeddings(db: Database, collection?: string): void {
     .get() as { n: number };
   if (remaining.n === 0) {
     db.exec(`DROP TABLE IF EXISTS vectors_vec`);
+    db.exec(RESET_PROFILE_EMBEDDINGS);
   }
 }
 

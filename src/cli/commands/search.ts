@@ -486,6 +486,7 @@ export async function querySearch(query: string, opts: OutputOptions, _embedMode
         minScore: opts.minScore || 0,
         candidateLimit: opts.candidateLimit,
         skipRerank: opts.skipRerank,
+        skipExpansion: opts.skipExpansion,
         explain: !!opts.explain,
         intent,
         chunkStrategy: opts.chunkStrategy,

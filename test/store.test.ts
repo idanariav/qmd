@@ -352,6 +352,25 @@ describe("Store Creation", () => {
     }
   });
 
+  test("compactVectors reclaims blocks left by deleted vectors", async () => {
+    const store = await createTestStore();
+    try {
+      if (typeof process.getBuiltinModule !== "function") return;
+      store.ensureVecTable(4);
+      const insert = store.db.prepare(`INSERT INTO vectors_vec (hash_seq, embedding) VALUES (?, ?)`);
+      for (let i = 0; i < 2100; i++) insert.run(`h${i}_0`, new Float32Array([i, 1, 0, 0]));
+      store.db.exec(`DELETE FROM vectors_vec WHERE hash_seq NOT IN ('h0_0','h1500_0','h2090_0')`);
+      const blocks = () => (store.db.prepare(`SELECT COUNT(*) as c FROM vectors_vec_chunks`).get() as { c: number }).c;
+      expect(blocks()).toBe(3);
+      expect(store.compactVectors()).toBe(2);
+      expect(blocks()).toBe(1);
+      expect((store.db.prepare(`SELECT COUNT(*) as c FROM vectors_vec`).get() as { c: number }).c).toBe(3);
+      expect(store.compactVectors()).toBe(0);
+    } finally {
+      await cleanupTestDb(store);
+    }
+  });
+
   test("ensureVecTable surfaces actionable sqlite-vec guidance", async () => {
     const store = await createTestStore();
     try {

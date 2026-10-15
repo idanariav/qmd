@@ -11,7 +11,7 @@ import { getCacheKey, getCachedResult, setCachedResult, clearCache } from "./cac
 import { getHashesNeedingEmbedding, getIndexHealth, getStatus } from "./health.js";
 import {
   deleteLLMCache, deleteInactiveDocuments, cleanupOrphanedContent,
-  cleanupOrphanedVectors, vacuumDatabase,
+  cleanupOrphanedVectors, compactVectors, vacuumDatabase,
 } from "./maintenance.js";
 import { getContextForFile, getContextForPath, getCollectionsWithoutContext, getTopLevelPathsWithoutContext } from "./context-ops.js";
 import { getCollectionByName } from "./collection-ops.js";
@@ -57,6 +57,7 @@ export type Store = {
   deleteInactiveDocuments: () => number;
   cleanupOrphanedContent: () => number;
   cleanupOrphanedVectors: () => number;
+  compactVectors: () => number;
   vacuumDatabase: () => void;
 
   getContextForFile: (filepath: string) => string | null;
@@ -129,6 +130,7 @@ export function createStore(dbPath?: string): Store {
     deleteInactiveDocuments: () => deleteInactiveDocuments(db),
     cleanupOrphanedContent: () => cleanupOrphanedContent(db),
     cleanupOrphanedVectors: () => cleanupOrphanedVectors(db),
+    compactVectors: () => compactVectors(db),
     vacuumDatabase: () => vacuumDatabase(db),
 
     getContextForFile: (filepath: string) => getContextForFile(db, filepath),
@@ -144,7 +146,7 @@ export function createStore(dbPath?: string): Store {
     toVirtualPath: (absolutePath: string) => toVirtualPath(db, absolutePath),
 
     searchFTS: (query: string, limit?: number, collectionName?: string) => searchFTS(db, query, limit, collectionName),
-    searchVec: (query: string, model: string, limit?: number, collectionName?: string, session?: ILLMSession, precomputedEmbedding?: number[]) => searchVec(db, query, model, limit, collectionName, session, precomputedEmbedding),
+    searchVec: (query: string, model: string, limit?: number, collectionName?: string, session?: ILLMSession, precomputedEmbedding?: number[]) => searchVec(db, query, model, limit, collectionName, session, precomputedEmbedding, store.llm),
 
     expandQuery: (query: string, model?: string, intent?: string) => expandQuery(query, model, db, intent, store.llm),
     rerank: (query: string, documents: { file: string; text: string }[], model?: string, intent?: string) => rerank(query, documents, model, db, intent, store.llm),

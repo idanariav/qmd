@@ -42,6 +42,7 @@ import {
   vacuumDatabase,
   cleanupOrphanedContent,
   cleanupOrphanedVectors,
+  compactVectors,
   deleteLLMCache,
   deleteInactiveDocuments,
   clearAllEmbeddings,
@@ -156,6 +157,8 @@ export interface SearchOptions {
   intent?: string;
   /** Rerank results using LLM (default: true) */
   rerank?: boolean;
+  /** Expand the query with LLM-generated variants (default: true). Only applies to `query`; turn off for short keyword/noun queries — faster and more precise. */
+  expand?: boolean;
   /** Filter to a specific collection */
   collection?: string;
   /** Filter to specific collections */
@@ -426,6 +429,7 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
         explain: opts.explain,
         intent: opts.intent,
         skipRerank,
+        skipExpansion: opts.expand === false,
         chunkStrategy: opts.chunkStrategy,
       });
     },

@@ -92,9 +92,16 @@ Async entry point: `chunkDocumentAsync(content, maxChars?, overlapChars?, window
 4. Call `session.embedBatch(chunks)` via node-llama-cpp (in `src/llm.ts`)
 5. `insertEmbedding(db, hash, seq, vector, model)` — stores `Float32Array` into `vectors_vec` virtual table via sqlite-vec
 
+6. Prune stale vectors: `cleanupOrphanedVectors()` + `compactVectors()` drop vectors of replaced/deleted content and rebuild `vectors_vec` (sqlite-vec never frees deleted slots, so `VACUUM` alone can't shrink it)
+
+### Profile vectors — `src/store/profiles.ts`
+
+Besides chunks, each document with `aliases`/`description` frontmatter gets one **profile vector**: `title | aliases. description` embedded with the same doc format. Atomic notes are searched by the noun the user remembers (usually an alias or title word), which chunk vectors of the body don't capture. Profile vectors live in `vectors_vec` under the key `profile:<doc id>` and compete with chunk vectors in `searchVec` (best distance per document wins). `doc_profiles.embedded_hash` (hash of title + profile text) and `model` decide whether a profile needs (re-)embedding, so frontmatter-only edits are picked up without re-embedding chunks. In the vault benchmark (`src/bench/fixtures/vault-claims-expanded.json`) this plus the FTS columns lifted hit@5 (BM25 0.78 to 0.93, vector 0.58 to 0.79, hybrid 0.76 to 0.89).
+
 **Tables written:**
 - `content_vectors` — metadata row per chunk (hash, seq, model, embedded_at)
-- `vectors_vec` — the actual embedding vector (sqlite-vec virtual table)
+- `vectors_vec` — the actual embedding vector (sqlite-vec virtual table), chunk and profile vectors
+- `doc_profiles` — profile text + embed state
 
 ## LLM Model Management — `src/llm.ts`
 

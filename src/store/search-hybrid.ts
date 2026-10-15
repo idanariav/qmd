@@ -266,7 +266,7 @@ export async function hybridQuery(
 
   hooks?.onExpandStart?.();
   const expandStart = Date.now();
-  const expanded = hasStrongSignal
+  const expanded = hasStrongSignal || options?.skipExpansion
     ? []
     : await store.expandQuery(query, undefined, intent);
 

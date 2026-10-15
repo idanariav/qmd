@@ -21,7 +21,8 @@ import {
   deactivateDocument, getActiveDocumentPaths, chunkDocumentByTokens,
 } from "./documents.js";
 import { cleanupOrphanedContent } from "./maintenance.js";
-import { insertEmbedding, clearAllEmbeddings } from "./search-vec.js";
+import { insertEmbedding, clearAllEmbeddings, vectorsTableExists } from "./search-vec.js";
+import { getProfilesNeedingEmbedding, insertProfileEmbedding } from "./profiles.js";
 import type { Store } from "./factory.js";
 
 function getLlm(store: Store): LlamaCpp {
@@ -96,6 +97,10 @@ export async function reindexCollection(
       continue;
     }
 
+    // With a section filter the indexed text is only that section, but metadata
+    // (frontmatter rows, tags, aliases, description) still comes from the whole file.
+    const fileFm = options?.section ? parseFrontmatter(content) : null;
+
     if (options?.section) {
       const sectionContent = extractSectionByHeading(content, options.section);
       if (sectionContent === null) {
@@ -108,6 +113,7 @@ export async function reindexCollection(
 
     const hash = await hashContent(content);
     const fm = parseFrontmatter(content);
+    const metaFm = fileFm ?? fm;
     const structure = parseStructure(fm.body);
     const title = fm.title || extractTitle(content, relativeFile);
     const stat = statSync(filepath);
@@ -126,11 +132,11 @@ export async function reindexCollection(
             .run(relativeFile, existing.id);
           unchanged++;
         }
-        upsertDocumentMetadata(db, existing.id, fm, structure);
+        upsertDocumentMetadata(db, existing.id, metaFm, structure);
       } else {
         insertContent(db, hash, content, now);
         updateDocument(db, existing.id, title, hash, modifiedAt, relativeFile);
-        upsertDocumentMetadata(db, existing.id, fm, structure);
+        upsertDocumentMetadata(db, existing.id, metaFm, structure);
         updated++;
       }
     } else {
@@ -138,7 +144,7 @@ export async function reindexCollection(
       insertContent(db, hash, content, now);
       insertDocument(db, collectionName, path, title, hash, createdAt, modifiedAt, relativeFile);
       const inserted = findActiveDocument(db, collectionName, path);
-      if (inserted) upsertDocumentMetadata(db, inserted.id, fm, structure);
+      if (inserted) upsertDocumentMetadata(db, inserted.id, metaFm, structure);
     }
 
     processed++;
@@ -170,6 +176,8 @@ export type EmbedProgress = {
 export type EmbedResult = {
   docsProcessed: number;
   chunksEmbedded: number;
+  /** Profile (title + aliases + description) vectors embedded, in addition to chunks. */
+  profilesEmbedded?: number;
   errors: number;
   durationMs: number;
 };
@@ -281,7 +289,7 @@ function getEmbeddingDocsForBatch(db: Database, batch: PendingEmbeddingDoc[]): E
   }));
 }
 
-export async function generateEmbeddings(
+async function embedChunks(
   store: Store,
   options?: EmbedOptions
 ): Promise<EmbedResult> {
@@ -454,4 +462,49 @@ export async function generateEmbeddings(
     errors: result.errors,
     durationMs: Date.now() - startTime,
   };
+}
+
+/** Embed each document's `title + aliases + description` profile (new or changed since last embed). */
+async function embedProfiles(store: Store, options?: EmbedOptions): Promise<{ profilesEmbedded: number; errors: number }> {
+  const db = store.db;
+  const model = options?.model ?? DEFAULT_EMBED_MODEL;
+  const pending = getProfilesNeedingEmbedding(db, model, options?.collection);
+  if (pending.length === 0) return { profilesEmbedded: 0, errors: 0 };
+
+  const llm = getLlm(store);
+  const embedModelUri = llm.embedModelName;
+  const now = new Date().toISOString();
+  const BATCH_SIZE = 32;
+
+  return withLLMSessionForLlm(llm, async (session) => {
+    let profilesEmbedded = 0;
+    let errors = 0;
+    for (let start = 0; start < pending.length; start += BATCH_SIZE) {
+      if (!session.isValid) {
+        errors += pending.length - start;
+        console.warn(`⚠ Session expired — skipping ${pending.length - start} remaining profiles`);
+        break;
+      }
+      const batch = pending.slice(start, start + BATCH_SIZE);
+      const texts = batch.map(p => formatDocForEmbedding(p.text, p.title, embedModelUri));
+      const embeddings = await session.embedBatch(texts, { model });
+      for (let i = 0; i < batch.length; i++) {
+        const embedding = embeddings[i];
+        if (!embedding) { errors++; continue; }
+        if (!vectorsTableExists(db)) store.ensureVecTable(embedding.embedding.length);
+        insertProfileEmbedding(db, batch[i]!, new Float32Array(embedding.embedding), model, now);
+        profilesEmbedded++;
+      }
+    }
+    return { profilesEmbedded, errors };
+  }, { maxDuration: 30 * 60 * 1000, name: 'embedProfiles' });
+}
+
+export async function generateEmbeddings(
+  store: Store,
+  options?: EmbedOptions
+): Promise<EmbedResult> {
+  const chunks = await embedChunks(store, options);
+  const profiles = await embedProfiles(store, options);
+  return { ...chunks, profilesEmbedded: profiles.profilesEmbedded, errors: chunks.errors + profiles.errors };
 }

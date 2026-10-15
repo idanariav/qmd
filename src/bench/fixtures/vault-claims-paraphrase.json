@@ -1,0 +1,407 @@
+{
+ "description": "Paraphrase queries over Content/Claims: sentence-length natural-language restatements of each claim written to avoid its title words (the kind of query the extracting/enriching skills send). Single expected claim each; other claims may be reasonable hits, so scores are a lower bound.",
+ "version": 1,
+ "collection": "claims",
+ "queries": [
+  {
+   "id": "para-00",
+   "query": "feeling at peace means accepting and combining every side of who you are",
+   "type": "semantic",
+   "description": "Paraphrase of: Achieving internal harmony requires integrating all parts of yourself",
+   "expected_files": [
+    "Achieving-internal-harmony-requires-integrating-all-parts-of-yourself.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-01",
+   "query": "being able to actually do the things you want",
+   "type": "semantic",
+   "description": "Paraphrase of: Agency is the ability to connect desires and actions",
+   "expected_files": [
+    "Agency-is-the-ability-to-connect-desires-and-actions.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-02",
+   "query": "when a skill becomes habitual its flaws get locked in",
+   "type": "semantic",
+   "description": "Paraphrase of: Automation of skill makes weaknesses permanent",
+   "expected_files": [
+    "Automation-of-skill-makes-weaknesses-permanent.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-03",
+   "query": "we can't see our own flaws without someone else's view",
+   "type": "semantic",
+   "description": "Paraphrase of: Blind spots require external perspective to surface",
+   "expected_files": [
+    "Blind-spots-require-external-perspective-to-surface.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-04",
+   "query": "things shift abruptly after enough small pressure builds up",
+   "type": "semantic",
+   "description": "Paraphrase of: Change happens suddenly once a threshold is crossed",
+   "expected_files": [
+    "Change-happens-suddenly-once-a-threshold-is-crossed.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-05",
+   "query": "the idea matters, not whether it arrives as a book, a video or a podcast",
+   "type": "semantic",
+   "description": "Paraphrase of: Content is independent from the medium that transmits it",
+   "expected_files": [
+    "Content-is-independent-from-the-medium-that-transmits-it.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-06",
+   "query": "setting checkpoints in advance makes you stop and reconsider",
+   "type": "semantic",
+   "description": "Paraphrase of: Decision points force re-evaluation or action by creating deliberate triggers",
+   "expected_files": [
+    "Decision-points-force-re-evaluation-or-action-by-creating-deliberate-triggers.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-07",
+   "query": "long-lasting hopelessness that comes from feeling powerless and purposeless",
+   "type": "semantic",
+   "description": "Paraphrase of: Depression is chronic despair from helplessness and lost meaning",
+   "expected_files": [
+    "Depression-is-chronic-despair-from-helplessness-and-lost-meaning.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-08",
+   "query": "chasing shiny new things keeps us from sticking with anything long enough",
+   "type": "semantic",
+   "description": "Paraphrase of: Distraction by novelty undermines commitment and depth",
+   "expected_files": [
+    "Distraction-by-novelty-undermines-commitment-and-depth.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-09",
+   "query": "moods are catching, we pick up how the people around us feel",
+   "type": "semantic",
+   "description": "Paraphrase of: Emotions spread between people through contagion",
+   "expected_files": [
+    "Emotions-spread-between-people-through-contagion.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-10",
+   "query": "spending money on trips and events makes us happier than buying stuff",
+   "type": "semantic",
+   "description": "Paraphrase of: Experiential purchases increase happiness more than material purchases",
+   "expected_files": [
+    "Experiential-purchases-increase-happiness-more-than-material-purchases.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-11",
+   "query": "why being turned down by others feels so threatening to who we are",
+   "type": "semantic",
+   "description": "Paraphrase of: Fear of rejection stems from perceived threat to self-worth and identity",
+   "expected_files": [
+    "Fear-of-rejection-stems-from-perceived-threat-to-self-worth-and-identity.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-12",
+   "query": "turning chores into games makes people want to do them",
+   "type": "semantic",
+   "description": "Paraphrase of: Gamification increases motivation by making activities enjoyable",
+   "expected_files": [
+    "Gamification-increases-motivation-by-making-activities-enjoyable.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-13",
+   "query": "tiny jobs should be done right away rather than put on a list",
+   "type": "semantic",
+   "description": "Paraphrase of: If a task takes under two minutes do it now",
+   "expected_files": [
+    "If-a-task-takes-under-two-minutes-do-it-now.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-14",
+   "query": "gut feelings are really experience that became instant",
+   "type": "semantic",
+   "description": "Paraphrase of: Intuition is trained expertise converted to automatic response",
+   "expected_files": [
+    "Intuition-is-trained-expertise-converted-to-automatic-response.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-15",
+   "query": "in some contests you win by not screwing up, not by being brilliant",
+   "type": "semantic",
+   "description": "Paraphrase of: Loser games are won by avoiding mistakes rather than outshining others",
+   "expected_files": [
+    "Loser-games-are-won-by-avoiding-mistakes-rather-than-outshining-others.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-16",
+   "query": "too much irrelevant information makes it hard to see what's real",
+   "type": "semantic",
+   "description": "Paraphrase of: Noise obscures truth with external interference and confusion",
+   "expected_files": [
+    "Noise-obscures-truth-with-external-interference-and-confusion.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-17",
+   "query": "a strong inner drive keeps you going when things get hard",
+   "type": "semantic",
+   "description": "Paraphrase of: Passion is deep desire that sustains intrinsic motivation through difficulty",
+   "expected_files": [
+    "Passion-is-deep-desire-that-sustains-intrinsic-motivation-through-difficulty.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-18",
+   "query": "what looks like chance is just us not knowing all the causes",
+   "type": "semantic",
+   "description": "Paraphrase of: Randomness may be an illusion created by incomplete knowledge",
+   "expected_files": [
+    "Randomness-may-be-an-illusion-created-by-incomplete-knowledge.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-19",
+   "query": "hurrying leads to poorer results than waiting",
+   "type": "semantic",
+   "description": "Paraphrase of: Rushing produces worse outcomes than patience",
+   "expected_files": [
+    "Rushing-produces-worse-outcomes-than-patience.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-20",
+   "query": "you have to believe in yourself before you can rely on other people",
+   "type": "semantic",
+   "description": "Paraphrase of: Self-trust is the first step to trusting others",
+   "expected_files": [
+    "Self-trust-is-the-first-step-to-trusting-others.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-21",
+   "query": "going deep on one narrow field turns you into an expert",
+   "type": "semantic",
+   "description": "Paraphrase of: Specialization develops deep expertise by focusing narrowly on a domain",
+   "expected_files": [
+    "Specialization-develops-deep-expertise-by-focusing-narrowly-on-a-domain.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-22",
+   "query": "the initial figure mentioned shapes how we judge every later one",
+   "type": "semantic",
+   "description": "Paraphrase of: The first number sets the frame for all that follow",
+   "expected_files": [
+    "The-first-number-sets-the-frame-for-all-that-follow.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-23",
+   "query": "hangouts that are neither home nor work hold neighborhoods together",
+   "type": "semantic",
+   "description": "Paraphrase of: Third places anchor community connection",
+   "expected_files": [
+    "Third-places-anchor-community-connection.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-24",
+   "query": "people stick with the preset option instead of changing it",
+   "type": "semantic",
+   "description": "Paraphrase of: We tend to accept defaults and rarely override them",
+   "expected_files": [
+    "We-tend-to-accept-defaults-and-rarely-override-them.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-25",
+   "query": "free, unorganised fun is how kids and adults learn and invent",
+   "type": "semantic",
+   "description": "Paraphrase of: Unstructured play drives learning and creativity",
+   "expected_files": [
+    "Unstructured-play-drives-learning-and-creativity.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-26",
+   "query": "the wording we choose changes what people think of a thing",
+   "type": "semantic",
+   "description": "Paraphrase of: How we describe something shapes how it is perceived",
+   "expected_files": [
+    "How-we-describe-something-shapes-how-it-is-perceived.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-27",
+   "query": "seeing material again and again helps it stick in the mind",
+   "type": "semantic",
+   "description": "Paraphrase of: Repeated exposure to information strengthens memory retention",
+   "expected_files": [
+    "Repeated-exposure-to-information-strengthens-memory-retention.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-28",
+   "query": "getting enough rest keeps the brain sharp and effective",
+   "type": "semantic",
+   "description": "Paraphrase of: Sleep is essential for cognitive function and peak performance",
+   "expected_files": [
+    "Sleep-is-essential-for-cognitive-function-and-peak-performance.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-29",
+   "query": "staying receptive to fresh thinking like a beginner would",
+   "type": "semantic",
+   "description": "Paraphrase of: Openness to new ideas without expert bias",
+   "expected_files": [
+    "Openness-to-new-ideas-without-expert-bias.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-30",
+   "query": "putting our own gain first stops us from seeing how others view things",
+   "type": "semantic",
+   "description": "Paraphrase of: Preferring personal benefits blinds us to others' perspectives",
+   "expected_files": [
+    "Preferring-personal-benefits-blinds-us-to-others-perspectives.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-31",
+   "query": "we assume who we are now is who we will always be",
+   "type": "semantic",
+   "description": "Paraphrase of: We mistake our current self for the final version",
+   "expected_files": [
+    "We-mistake-our-current-self-for-the-final-version.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-32",
+   "query": "what a term means shifts depending on era and culture",
+   "type": "semantic",
+   "description": "Paraphrase of: Word meaning varies with history and social context",
+   "expected_files": [
+    "Word-meaning-varies-with-history-and-social-context.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-33",
+   "query": "comparing to familiar things and simplifying helps us pick things up quicker",
+   "type": "semantic",
+   "description": "Paraphrase of: Mental shortcuts enable faster learning through analogies and simplification",
+   "expected_files": [
+    "Mental-shortcuts-enable-faster-learning-through-analogies-and-simplification.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-34",
+   "query": "education never ends after school",
+   "type": "semantic",
+   "description": "Paraphrase of: Learning must continue constantly throughout life",
+   "expected_files": [
+    "Learning-must-continue-constantly-throughout-life.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-35",
+   "query": "figure out what kind of problem it is before tackling it",
+   "type": "semantic",
+   "description": "Paraphrase of: Every task should be categorized before solving it",
+   "expected_files": [
+    "Every-task-should-be-categorized-before-solving-it.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-36",
+   "query": "each person's mind colors what they take the world to be",
+   "type": "semantic",
+   "description": "Paraphrase of: Subjective perception filters how we see external reality",
+   "expected_files": [
+    "Subjective-perception-filters-how-we-see-external-reality.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-37",
+   "query": "deal with trouble early before it grows",
+   "type": "semantic",
+   "description": "Paraphrase of: Handle problems while they are still small",
+   "expected_files": [
+    "Handle-problems-while-they-are-still-small.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-38",
+   "query": "look ahead to the next action instead of dwelling on the failure",
+   "type": "semantic",
+   "description": "Paraphrase of: Focus on what you can do next not what went wrong",
+   "expected_files": [
+    "Focus-on-what-you-can-do-next-not-what-went-wrong.md"
+   ],
+   "expected_in_top_k": 5
+  },
+  {
+   "id": "para-39",
+   "query": "break complicated subjects down into their basic components",
+   "type": "semantic",
+   "description": "Paraphrase of: Complex things are best understood by their core parts",
+   "expected_files": [
+    "Complex-things-are-best-understood-by-their-core-parts.md"
+   ],
+   "expected_in_top_k": 5
+  }
+ ]
+}

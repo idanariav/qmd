@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { realpathSync, existsSync, readFileSync, unlinkSync, writeFileSync, openSync, closeSync, mkdirSync } from "fs";
 import { dirname, join as pathJoin } from "path";
 import { spawn as nodeSpawn } from "child_process";
-import { enableProductionMode, resolve, DEFAULT_MULTI_GET_MAX_BYTES, deleteLLMCache, cleanupOrphanedVectors, deleteInactiveDocuments, vacuumDatabase, getPwd, getRealPath } from "../store.js";
+import { enableProductionMode, resolve, DEFAULT_MULTI_GET_MAX_BYTES, deleteLLMCache, cleanupOrphanedVectors, compactVectors, deleteInactiveDocuments, vacuumDatabase, getPwd, getRealPath } from "../store.js";
 import { disposeDefaultLlamaCpp, pullModels, DEFAULT_EMBED_MODEL_URI, DEFAULT_MODEL_CACHE_DIR } from "../llm.js";
 
 import { parseCLI } from "./args.js";
@@ -557,6 +557,11 @@ if (isMain) {
         console.log(`${c.green}✓${c.reset} Removed ${orphanedVecs} orphaned embedding chunks`);
       } else {
         console.log(`${c.dim}No orphaned embeddings to remove${c.reset}`);
+      }
+
+      const freedBlocks = compactVectors(db);
+      if (freedBlocks > 0) {
+        console.log(`${c.green}✓${c.reset} Compacted vector table (freed ${freedBlocks} blocks)`);
       }
 
       const inactiveDocs = deleteInactiveDocuments(db);

@@ -1,0 +1,387 @@
+{
+  "description": "Noun-recall queries over Content/Claims: the user remembers a noun they think is in the claim's title, not its phrasing. 'exact' = noun literally in title, 'semantic' = synonym/related word not in title. Single expected claim each (other claims may also be reasonable hits, so scores are a lower bound).",
+  "version": 1,
+  "collection": "claims",
+  "queries": [
+    {
+      "id": "claim-00-harmony",
+      "query": "harmony",
+      "type": "exact",
+      "description": "Noun recalled for: Achieving internal harmony requires integrating all parts of yourself",
+      "expected_files": [
+        "Achieving-internal-harmony-requires-integrating-all-parts-of-yourself.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-01-agency",
+      "query": "agency",
+      "type": "exact",
+      "description": "Noun recalled for: Agency is the ability to connect desires and actions",
+      "expected_files": [
+        "Agency-is-the-ability-to-connect-desires-and-actions.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-02-automation",
+      "query": "automation",
+      "type": "exact",
+      "description": "Noun recalled for: Automation of skill makes weaknesses permanent",
+      "expected_files": [
+        "Automation-of-skill-makes-weaknesses-permanent.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-03-blind-spots",
+      "query": "blind spots",
+      "type": "exact",
+      "description": "Noun recalled for: Blind spots require external perspective to surface",
+      "expected_files": [
+        "Blind-spots-require-external-perspective-to-surface.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-04-threshold",
+      "query": "threshold",
+      "type": "exact",
+      "description": "Noun recalled for: Change happens suddenly once a threshold is crossed",
+      "expected_files": [
+        "Change-happens-suddenly-once-a-threshold-is-crossed.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-05-medium",
+      "query": "medium",
+      "type": "exact",
+      "description": "Noun recalled for: Content is independent from the medium that transmits it",
+      "expected_files": [
+        "Content-is-independent-from-the-medium-that-transmits-it.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-06-decision-points",
+      "query": "decision points",
+      "type": "exact",
+      "description": "Noun recalled for: Decision points force re-evaluation or action by creating deliberate triggers",
+      "expected_files": [
+        "Decision-points-force-re-evaluation-or-action-by-creating-deliberate-triggers.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-07-depression",
+      "query": "depression",
+      "type": "exact",
+      "description": "Noun recalled for: Depression is chronic despair from helplessness and lost meaning",
+      "expected_files": [
+        "Depression-is-chronic-despair-from-helplessness-and-lost-meaning.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-08-novelty",
+      "query": "novelty",
+      "type": "exact",
+      "description": "Noun recalled for: Distraction by novelty undermines commitment and depth",
+      "expected_files": [
+        "Distraction-by-novelty-undermines-commitment-and-depth.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-09-contagion",
+      "query": "contagion",
+      "type": "exact",
+      "description": "Noun recalled for: Emotions spread between people through contagion",
+      "expected_files": [
+        "Emotions-spread-between-people-through-contagion.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-10-experiential-purchases",
+      "query": "experiential purchases",
+      "type": "exact",
+      "description": "Noun recalled for: Experiential purchases increase happiness more than material purchases",
+      "expected_files": [
+        "Experiential-purchases-increase-happiness-more-than-material-purchases.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-11-rejection",
+      "query": "rejection",
+      "type": "exact",
+      "description": "Noun recalled for: Fear of rejection stems from perceived threat to self-worth and identity",
+      "expected_files": [
+        "Fear-of-rejection-stems-from-perceived-threat-to-self-worth-and-identity.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-12-gamification",
+      "query": "gamification",
+      "type": "exact",
+      "description": "Noun recalled for: Gamification increases motivation by making activities enjoyable",
+      "expected_files": [
+        "Gamification-increases-motivation-by-making-activities-enjoyable.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-13-two-minutes",
+      "query": "two minutes",
+      "type": "exact",
+      "description": "Noun recalled for: If a task takes under two minutes do it now",
+      "expected_files": [
+        "If-a-task-takes-under-two-minutes-do-it-now.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-14-intuition",
+      "query": "intuition",
+      "type": "exact",
+      "description": "Noun recalled for: Intuition is trained expertise converted to automatic response",
+      "expected_files": [
+        "Intuition-is-trained-expertise-converted-to-automatic-response.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-15-loser-games",
+      "query": "loser games",
+      "type": "exact",
+      "description": "Noun recalled for: Loser games are won by avoiding mistakes rather than outshining others",
+      "expected_files": [
+        "Loser-games-are-won-by-avoiding-mistakes-rather-than-outshining-others.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-16-noise",
+      "query": "noise",
+      "type": "exact",
+      "description": "Noun recalled for: Noise obscures truth with external interference and confusion",
+      "expected_files": [
+        "Noise-obscures-truth-with-external-interference-and-confusion.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-17-passion",
+      "query": "passion",
+      "type": "exact",
+      "description": "Noun recalled for: Passion is deep desire that sustains intrinsic motivation through difficulty",
+      "expected_files": [
+        "Passion-is-deep-desire-that-sustains-intrinsic-motivation-through-difficulty.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-18-randomness",
+      "query": "randomness",
+      "type": "exact",
+      "description": "Noun recalled for: Randomness may be an illusion created by incomplete knowledge",
+      "expected_files": [
+        "Randomness-may-be-an-illusion-created-by-incomplete-knowledge.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-19-patience",
+      "query": "patience",
+      "type": "exact",
+      "description": "Noun recalled for: Rushing produces worse outcomes than patience",
+      "expected_files": [
+        "Rushing-produces-worse-outcomes-than-patience.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-20-self-trust",
+      "query": "self-trust",
+      "type": "exact",
+      "description": "Noun recalled for: Self-trust is the first step to trusting others",
+      "expected_files": [
+        "Self-trust-is-the-first-step-to-trusting-others.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-21-specialization",
+      "query": "specialization",
+      "type": "exact",
+      "description": "Noun recalled for: Specialization develops deep expertise by focusing narrowly on a domain",
+      "expected_files": [
+        "Specialization-develops-deep-expertise-by-focusing-narrowly-on-a-domain.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-22-anchoring",
+      "query": "anchoring",
+      "type": "semantic",
+      "description": "Noun recalled for: The first number sets the frame for all that follow",
+      "expected_files": [
+        "The-first-number-sets-the-frame-for-all-that-follow.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-23-third-places",
+      "query": "third places",
+      "type": "exact",
+      "description": "Noun recalled for: Third places anchor community connection",
+      "expected_files": [
+        "Third-places-anchor-community-connection.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-24-defaults",
+      "query": "defaults",
+      "type": "exact",
+      "description": "Noun recalled for: We tend to accept defaults and rarely override them",
+      "expected_files": [
+        "We-tend-to-accept-defaults-and-rarely-override-them.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-25-play",
+      "query": "play",
+      "type": "exact",
+      "description": "Noun recalled for: Unstructured play drives learning and creativity",
+      "expected_files": [
+        "Unstructured-play-drives-learning-and-creativity.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-26-framing",
+      "query": "framing",
+      "type": "semantic",
+      "description": "Noun recalled for: How we describe something shapes how it is perceived",
+      "expected_files": [
+        "How-we-describe-something-shapes-how-it-is-perceived.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-27-procrastination",
+      "query": "procrastination",
+      "type": "semantic",
+      "description": "Noun recalled for: Initial effort investments create friction preventing optimal behavior change",
+      "expected_files": [
+        "Initial-effort-investments-create-friction-preventing-optimal-behavior-change.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-28-memory",
+      "query": "memory",
+      "type": "exact",
+      "description": "Noun recalled for: Repeated exposure to information strengthens memory retention",
+      "expected_files": [
+        "Repeated-exposure-to-information-strengthens-memory-retention.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-29-sleep",
+      "query": "sleep",
+      "type": "exact",
+      "description": "Noun recalled for: Sleep is essential for cognitive function and peak performance",
+      "expected_files": [
+        "Sleep-is-essential-for-cognitive-function-and-peak-performance.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-30-bias",
+      "query": "bias",
+      "type": "exact",
+      "description": "Noun recalled for: Openness to new ideas without expert bias",
+      "expected_files": [
+        "Openness-to-new-ideas-without-expert-bias.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-31-selfishness",
+      "query": "selfishness",
+      "type": "semantic",
+      "description": "Noun recalled for: Preferring personal benefits blinds us to others' perspectives",
+      "expected_files": [
+        "Preferring-personal-benefits-blinds-us-to-others-perspectives.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-32-identity-change",
+      "query": "identity change",
+      "type": "semantic",
+      "description": "Noun recalled for: We mistake our current self for the final version",
+      "expected_files": [
+        "We-mistake-our-current-self-for-the-final-version.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-33-language",
+      "query": "language",
+      "type": "semantic",
+      "description": "Noun recalled for: Word meaning varies with history and social context",
+      "expected_files": [
+        "Word-meaning-varies-with-history-and-social-context.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-34-heuristics",
+      "query": "heuristics",
+      "type": "semantic",
+      "description": "Noun recalled for: Mental shortcuts enable faster learning through analogies and simplification",
+      "expected_files": [
+        "Mental-shortcuts-enable-faster-learning-through-analogies-and-simplification.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-35-lifelong-learning",
+      "query": "lifelong learning",
+      "type": "semantic",
+      "description": "Noun recalled for: Learning must continue constantly throughout life",
+      "expected_files": [
+        "Learning-must-continue-constantly-throughout-life.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-36-categorization",
+      "query": "categorization",
+      "type": "exact",
+      "description": "Noun recalled for: Every task should be categorized before solving it",
+      "expected_files": [
+        "Every-task-should-be-categorized-before-solving-it.md"
+      ],
+      "expected_in_top_k": 5
+    },
+    {
+      "id": "claim-37-subjectivity",
+      "query": "subjectivity",
+      "type": "semantic",
+      "description": "Noun recalled for: Subjective perception filters how we see external reality",
+      "expected_files": [
+        "Subjective-perception-filters-how-we-see-external-reality.md"
+      ],
+      "expected_in_top_k": 5
+    }
+  ]
+}

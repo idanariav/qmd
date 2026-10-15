@@ -145,12 +145,43 @@ export function initializeDatabase(db: Database): void {
     )
   `);
 
-  // FTS - index filepath (collection/path), title, and content
+  // Searchable frontmatter text per document (aliases, description). Feeds the FTS
+  // columns below and the "profile" vector (title + aliases + description).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS doc_profiles (
+      doc_id        INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+      aliases       TEXT NOT NULL DEFAULT '',
+      description   TEXT NOT NULL DEFAULT '',
+      embedded_hash TEXT,
+      model         TEXT,
+      embedded_at   TEXT
+    )
+  `);
+
+  // Migration: FTS gained `aliases` and `description` columns — rebuild it (and its triggers)
+  {
+    const ftsCols = (db.prepare(`PRAGMA table_info(documents_fts)`).all() as { name: string }[]).map(c => c.name);
+    if (ftsCols.length > 0 && !ftsCols.includes('aliases')) {
+      db.exec(`DROP TRIGGER IF EXISTS documents_ai`);
+      db.exec(`DROP TRIGGER IF EXISTS documents_au`);
+      db.exec(`DROP TABLE documents_fts`);
+    }
+  }
+
+  // FTS - index filepath (collection/path), title, frontmatter aliases/description, and content
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
-      filepath, title, body,
+      filepath, title, aliases, description, body,
       tokenize='porter unicode61'
     )
+  `);
+  db.exec(`
+    INSERT INTO documents_fts(rowid, filepath, title, aliases, description, body)
+    SELECT d.id, d.collection || '/' || d.path, d.title,
+           COALESCE(p.aliases, ''), COALESCE(p.description, ''),
+           (SELECT doc FROM content WHERE hash = d.hash)
+    FROM documents d LEFT JOIN doc_profiles p ON p.doc_id = d.id
+    WHERE d.active = 1 AND NOT EXISTS (SELECT 1 FROM documents_fts f WHERE f.rowid = d.id)
   `);
 
   // Triggers to keep FTS in sync
@@ -158,11 +189,13 @@ export function initializeDatabase(db: Database): void {
     CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents
     WHEN new.active = 1
     BEGIN
-      INSERT INTO documents_fts(rowid, filepath, title, body)
+      INSERT INTO documents_fts(rowid, filepath, title, aliases, description, body)
       SELECT
         new.id,
         new.collection || '/' || new.path,
         new.title,
+        COALESCE((SELECT aliases FROM doc_profiles WHERE doc_id = new.id), ''),
+        COALESCE((SELECT description FROM doc_profiles WHERE doc_id = new.id), ''),
         (SELECT doc FROM content WHERE hash = new.hash)
       WHERE new.active = 1;
     END
@@ -181,11 +214,13 @@ export function initializeDatabase(db: Database): void {
       DELETE FROM documents_fts WHERE rowid = old.id AND new.active = 0;
 
       -- Update FTS if still/newly active
-      INSERT OR REPLACE INTO documents_fts(rowid, filepath, title, body)
+      INSERT OR REPLACE INTO documents_fts(rowid, filepath, title, aliases, description, body)
       SELECT
         new.id,
         new.collection || '/' || new.path,
         new.title,
+        COALESCE((SELECT aliases FROM doc_profiles WHERE doc_id = new.id), ''),
+        COALESCE((SELECT description FROM doc_profiles WHERE doc_id = new.id), ''),
         (SELECT doc FROM content WHERE hash = new.hash)
       WHERE new.active = 1;
     END

@@ -150,6 +150,8 @@ export interface HybridQueryOptions {
   explain?: boolean;
   intent?: string;
   skipRerank?: boolean;
+  /** Skip LLM query expansion (search with the original query only). Faster; better for short keyword/noun queries. */
+  skipExpansion?: boolean;
   chunkStrategy?: import("./chunking.js").ChunkStrategy;
   hooks?: SearchHooks;
 }

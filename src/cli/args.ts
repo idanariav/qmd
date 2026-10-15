@@ -21,6 +21,7 @@ export type OutputOptions = {
   candidateLimit?: number;
   intent?: string;
   skipRerank?: boolean;
+  skipExpansion?: boolean;
   chunkStrategy?: ChunkStrategy;
   quiet?: boolean;
 };
@@ -97,6 +98,7 @@ export function parseCLI() {
       quiet: { type: "boolean", short: "q" },
       "candidate-limit": { type: "string", short: "C" },
       "no-rerank": { type: "boolean", default: false },
+      "no-expand": { type: "boolean", default: false },
       intent: { type: "string" },
       "chunk-strategy": { type: "string" },
       http: { type: "boolean" },
@@ -133,6 +135,7 @@ export function parseCLI() {
     lineNumbers: !!values["line-numbers"],
     candidateLimit: values["candidate-limit"] ? parseInt(String(values["candidate-limit"]), 10) : undefined,
     skipRerank: !!values["no-rerank"],
+    skipExpansion: !!values["no-expand"],
     explain: !!values.explain,
     intent: values.intent as string | undefined,
     chunkStrategy: parseChunkStrategy(values["chunk-strategy"]),

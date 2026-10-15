@@ -15,6 +15,7 @@ import {
   type BreakPoint, type ProtectedRegion,
 } from "./chunking.js";
 import { parseFrontmatter } from "../parse/frontmatter.js";
+import { extractProfileFields, upsertDocProfile } from "./profiles.js";
 import { parseStructure } from "../parse/structure.js";
 import { getDefaultLlamaCpp, formatQueryForEmbedding, formatDocForEmbedding } from "../llm.js";
 
@@ -371,8 +372,10 @@ export function findOrMigrateLegacyDocument(
 
     db.prepare(`DELETE FROM documents_fts WHERE rowid = ?`).run(legacy.id);
     db.prepare(`
-      INSERT INTO documents_fts(rowid, filepath, title, body)
+      INSERT INTO documents_fts(rowid, filepath, title, aliases, description, body)
       SELECT id, collection || '/' || path, title,
+             COALESCE((SELECT aliases FROM doc_profiles WHERE doc_id = documents.id), ''),
+             COALESCE((SELECT description FROM doc_profiles WHERE doc_id = documents.id), ''),
              (SELECT doc FROM content WHERE hash = documents.hash)
       FROM documents WHERE id = ?
     `).run(legacy.id);
@@ -429,6 +432,8 @@ export function upsertDocumentMetadata(
   for (const row of fm.rows) {
     fmStmt.run(docId, row.key, row.value_text, row.value_num ?? null, row.value_date ?? null, row.is_array ? 1 : 0);
   }
+
+  upsertDocProfile(db, docId, extractProfileFields(fm));
 
   const tagStmt = db.prepare(`INSERT OR IGNORE INTO tags (doc_id, tag) VALUES (?, ?)`);
   for (const tag of fm.tags) {

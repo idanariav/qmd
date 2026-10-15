@@ -2,6 +2,7 @@
 
 import {
   getHashesNeedingEmbedding,
+  getProfilesNeedingEmbedding,
   generateEmbeddings,
   DEFAULT_EMBED_MAX_BATCH_BYTES,
   DEFAULT_EMBED_MAX_DOCS_PER_BATCH,
@@ -25,6 +26,15 @@ export function parseEmbedBatchOption(name: string, value: unknown): number | un
   return parsed;
 }
 
+/** Drop vectors of replaced/deleted content and reclaim their space, so the index doesn't grow with every edit. */
+function pruneStaleVectors(storeInstance: ReturnType<typeof getStore>): void {
+  const orphaned = storeInstance.cleanupOrphanedVectors();
+  const freedBlocks = storeInstance.compactVectors();
+  if (orphaned > 0 || freedBlocks > 0) {
+    console.log(`${c.dim}Cleaned up ${orphaned} stale vectors${freedBlocks > 0 ? `, freed ${freedBlocks} blocks` : ""}${c.reset}`);
+  }
+}
+
 export async function vectorIndex(
   model: string,
   force: boolean = false,
@@ -38,8 +48,9 @@ export async function vectorIndex(
   }
 
   const hashesToEmbed = getHashesNeedingEmbedding(db, batchOptions?.collection);
-  if (hashesToEmbed === 0 && !force) {
+  if (hashesToEmbed === 0 && !force && getProfilesNeedingEmbedding(db, model, batchOptions?.collection).length === 0) {
     console.log(`${c.green}✓ All content hashes already have embeddings.${c.reset}`);
+    pruneStaleVectors(storeInstance);
     closeDb();
     return;
   }
@@ -87,15 +98,16 @@ export async function vectorIndex(
 
   const totalTimeSec = result.durationMs / 1000;
 
-  if (result.chunksEmbedded === 0 && result.docsProcessed === 0) {
+  if (result.chunksEmbedded === 0 && result.docsProcessed === 0 && !result.profilesEmbedded) {
     console.log(`${c.green}✓ No non-empty documents to embed.${c.reset}`);
   } else {
     console.log(`\r${c.green}${renderProgressBar(100)}${c.reset} ${c.bold}100%${c.reset}                                    `);
-    console.log(`\n${c.green}✓ Done!${c.reset} Embedded ${c.bold}${result.chunksEmbedded}${c.reset} chunks from ${c.bold}${result.docsProcessed}${c.reset} documents in ${c.bold}${formatETA(totalTimeSec)}${c.reset}`);
+    console.log(`\n${c.green}✓ Done!${c.reset} Embedded ${c.bold}${result.chunksEmbedded}${c.reset} chunks${result.profilesEmbedded ? ` + ${result.profilesEmbedded} profiles` : ""} from ${c.bold}${result.docsProcessed}${c.reset} documents in ${c.bold}${formatETA(totalTimeSec)}${c.reset}`);
     if (result.errors > 0) {
       console.log(`${c.yellow}⚠ ${result.errors} chunks failed${c.reset}`);
     }
   }
 
+  pruneStaleVectors(storeInstance);
   closeDb();
 }

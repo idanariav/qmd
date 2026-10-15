@@ -4,11 +4,19 @@
 
 ### Added
 
+- `--no-expand` (CLI) / `expand: false` (SDK `search()`) skips LLM query expansion in `hsearch`. On the vault's noun-recall benchmark, expansion lowered hybrid hit@5 from 0.92 to 0.89 and MRR from 0.82 to 0.76, and cost ~4s per query; short keyword queries do better without it. Default is unchanged.
+- Frontmatter `aliases`/`alias` and `description`/`summary` are now searchable: they get their own `documents_fts` columns (BM25-weighted) and one extra **profile vector** per document (`title | aliases. description`, key `profile:<doc id>` in `vectors_vec`, state in the new `doc_profiles` table). Run `qmd index` then `qmd embed` to populate; existing databases rebuild the FTS table automatically on first open. On the vault's noun-recall benchmark (236 queries, `claims`) hit@5 went from 0.78 to 0.93 for `tsearch`, 0.58 to 0.79 for `vsearch` and 0.76 to 0.89 for hybrid (no rerank).
+- `src/bench/fixtures/vault-claims-paraphrase.json`: 40 sentence-length paraphrase queries (title words avoided) over `claims`, for judging semantic retrieval. Counterpart to the noun-recall fixture below.
+- `src/bench/fixtures/vault-claims-expanded.json`: 236 noun-recall queries (title word, alias, description word, plus 38 hand-written) with multi-file relevance sets.
 - `--json` results from `hsearch`/`tsearch`/`vsearch`/`fsearch` now include `path` (the real collection-relative file path, original casing/spaces — accepted unchanged by `qmd get`) and `collection`, alongside the existing `file` `qmd://` URI. Search results from the MCP `hsearch` tool and HTTP `/query` gain the same fields.
 - `snippet_text` field in JSON/MCP search results: the snippet without the `@@ -N,M @@ (… before, … after)` hunk header. `snippet` is unchanged.
 
 ### Fixed
 
+- SDK `searchVector()` embedded the query with the global default `LlamaCpp` instead of the store's own, so `store.close()` never disposed it (a second model copy was loaded, and `process.exit()` right after aborted with `GGML_ASSERT([rsets->data count] == 0)`).
+- Collections with a `section` filter now index frontmatter (`frontmatter`, `tags` tables) from the whole file, not from the filtered section (which has no frontmatter), so `fsearch` on properties and tags works for them.
+- `qmd embed` now prunes orphaned vectors and compacts the vector table when it finishes (including when nothing needed embedding), so the index no longer accumulates dead vectors from edited/deleted notes.
+- `qmd cleanup` now compacts the `vectors_vec` table (new `compactVectors()`) after removing orphaned embeddings. sqlite-vec never frees slots of deleted rows, so `VACUUM` alone left the vector table at its peak size.
 - `hsearch`/`structuredSearch` reported score was dominated by RRF rank position, not actual relevance — the top-ranked candidate always started from a 0.75 floor regardless of what the reranker thought of it, so unrelated/nonsense queries could show a confident-looking top score (e.g. ~88%) with no real match. The reported/filtered score is now the raw reranker score (the only signal that reflects actual query/document relevance); the RRF blend is still used internally to order results.
 
 ### Security

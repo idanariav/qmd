@@ -8,6 +8,7 @@ export * from "./collection-ops.js";
 export * from "./virtual-paths.js";
 export * from "./health.js";
 export * from "./maintenance.js";
+export * from "./profiles.js";
 export * from "./chunking.js";
 export * from "./documents.js";
 export * from "./context-ops.js";

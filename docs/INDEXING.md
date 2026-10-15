@@ -51,13 +51,18 @@ Steps:
 5. **DB writes** (per document):
    - `documents` — file registry row (upsert)
    - `content` — raw text (content-addressable, shared across identical files)
-   - `documents_fts` — FTS5 index upsert
+   - `documents_fts` — FTS5 index upsert (columns: filepath, title, aliases, description, body)
    - `frontmatter` — key/value rows (arrays exploded to multiple rows)
+   - `doc_profiles` — the document's `aliases`/`alias` and `description`/`summary` frontmatter text (see below)
    - `sections` — one row per heading-delimited section
    - `tags` — denormalized tag rows
    - `callouts` — Obsidian-style callout blocks
    - `wikilinks` — `[[target]]` links
 6. **Orphan cleanup** — `cleanupOrphanedContent()` removes `content` blobs with no active `documents` referencing them; marks deleted files as `active = false`
+
+**Metadata with a `section` filter:** when a collection indexes only one heading's section, `content`/FTS body/chunks come from that section, but `frontmatter`, `tags` and `doc_profiles` are still parsed from the **whole file**. A frontmatter-only edit doesn't change the content hash, so it is picked up on the next `qmd index` (metadata is rewritten for unchanged files) and the profile vector is re-embedded on the next `qmd embed` when its text changed.
+
+**Profiles** (`src/store/profiles.ts`): `aliases`/`alias` and `description`/`summary` frontmatter keys (case-insensitive) are copied into `doc_profiles`, indexed in their own FTS columns (bm25 weights: filepath 1.5, title 4, aliases 3, description 1.5, body 1) and embedded as one extra vector per document (see [EMBEDDING.md](EMBEDDING.md)). Older databases get the new FTS columns via a rebuild at startup; run `qmd index` to fill them.
 
 **Key helpers:**
 - `insertDocument()` — write/upsert document registry row
