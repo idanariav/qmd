@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./query": {
+      "import": "./dist/query/parser.js",
+      "types": "./dist/query/parser.d.ts"
     }
   },
   "bin": {
@@ -17,6 +21,7 @@
   "files": [
     "bin/",
     "dist/",
+    "assets/common-words.txt",
     "LICENSE",
     "CHANGELOG.md"
   ],

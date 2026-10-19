@@ -104,6 +104,8 @@ export function parseCLI() {
       http: { type: "boolean" },
       daemon: { type: "boolean" },
       port: { type: "string" },
+      out: { type: "string" },
+      dim: { type: "string" },
     },
     allowPositionals: true,
     strict: false,

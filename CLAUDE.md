@@ -25,6 +25,7 @@ qmd multi-get <pattern>           # Get multiple docs by glob or comma-separated
 qmd status                        # Show index status and collections
 qmd index [--pull]                # Re-index all collections (--pull: git pull first)
 qmd embed                         # Generate vector embeddings (uses node-llama-cpp)
+qmd export [--out <dir>]          # Portable int8 vector export into a vault (docs/EXPORT.md)
 qmd hsearch <query>               # Search with query expansion + reranking (recommended)
 qmd tsearch <query>               # Full-text keyword search (BM25, no LLM)
 qmd fsearch <filter>              # Filter by frontmatter/tags/dates/sections (DSL, no LLM)

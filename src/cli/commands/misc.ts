@@ -152,6 +152,8 @@ export function showHelp(): void {
   console.log("  qmd embed [-f]                - Generate/refresh vector embeddings");
   console.log("    --max-docs-per-batch <n>    - Cap docs loaded into memory per embedding batch");
   console.log("    --max-batch-mb <n>          - Cap UTF-8 MB loaded into memory per embedding batch");
+  console.log("  qmd export [--out <dir>]      - Write a portable int8 vector export into a vault folder");
+  console.log("    --dim <n>                   - Truncated dimensions (default 512)");
   console.log("  qmd cleanup                   - Clear caches, vacuum DB");
   console.log("");
   console.log("Query syntax (qmd hsearch):");

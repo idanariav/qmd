@@ -1083,6 +1083,26 @@ describe("search output formats", () => {
     }
   });
 
+  test("piped --json output larger than the 64 KB pipe buffer arrives complete", async () => {
+    // Regression: exiting right after console.log dropped whatever was still queued on an
+    // async (piped) stdout, cutting large --json results off at 65536 bytes.
+    const env = await createIsolatedTestEnv("large-piped-json");
+    const vault = join(testDir, `vault-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    await mkdir(vault, { recursive: true });
+    const count = 400;
+    for (let i = 0; i < count; i++) {
+      const title = `Large output note number ${i} with a deliberately long title to grow the JSON`;
+      await writeFile(join(vault, `${title}.md`), `# ${title}\n\nBody ${i}.\n`);
+    }
+    const opts = { dbPath: env.dbPath, configDir: env.configDir };
+    expect((await runQmd(["collection", "add", vault, "--name", "big"], opts)).exitCode).toBe(0);
+
+    const { stdout, exitCode } = await runQmd(["fsearch", 'title ~= "Large output"', "-n", "1000", "--json"], opts);
+    expect(exitCode).toBe(0);
+    expect(stdout.length).toBeGreaterThan(65536);
+    expect(JSON.parse(stdout)).toHaveLength(count);
+  });
+
   test("custom-index search links include ?index= and can be passed back to qmd get", async () => {
     const env = await createIsolatedTestEnv("custom-index-links");
     const customColl = "fixtures-alt";

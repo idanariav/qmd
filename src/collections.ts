@@ -57,6 +57,15 @@ export interface CollectionConfig {
   editor_uri_template?: string;               // Alias for editor_uri
   collections: Record<string, Collection>;    // Collection name -> config
   models?: ModelsConfig;
+  export?: ExportConfig;
+}
+
+/**
+ * Portable vector export (`qmd export`); when `path` is set, `qmd embed` also re-exports.
+ */
+export interface ExportConfig {
+  path: string;              // Output directory, inside an Obsidian vault
+  dim?: number;              // Truncated vector dimensions (default 512)
 }
 
 /**

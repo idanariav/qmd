@@ -27,7 +27,7 @@ Filesystem → [INDEXING] → SQLite metadata + FTS
 | `src/cli/utils.ts` | Colors, cursor, progress bar, format helpers |
 | `src/cli/args.ts` | `parseCLI`, `normalizeArgv`, output option types |
 | `src/cli/uri.ts` | `buildEditorUri`, `termLink` |
-| `src/cli/commands/` | One file per command group: `status`, `context`, `get`, `collection`, `index-cmd`, `search`, `misc` |
+| `src/cli/commands/` | One file per command group: `status`, `context`, `get`, `collection`, `index-cmd`, `search`, `export` ([EXPORT.md](EXPORT.md)), `misc` |
 | `src/mcp/server.ts` | MCP server (stdio + HTTP transports) |
 | `src/db.ts` | SQLite abstraction; loads sqlite-vec extension |
 | `src/index.ts` | Public SDK entry point |

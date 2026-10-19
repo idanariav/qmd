@@ -24,6 +24,7 @@ import { contextAdd, contextList, contextRemove } from "./commands/context.js";
 import { getDocument, multiGet, listFiles } from "./commands/get.js";
 import { collectionList, collectionAdd, collectionRemove, collectionRename } from "./commands/collection.js";
 import { vectorIndex, parseEmbedBatchOption } from "./commands/index-cmd.js";
+import { exportVectors, configuredExportDir } from "./commands/export.js";
 import { search, vectorSearch, querySearch, filterSearch, resolveCollectionFilter } from "./commands/search.js";
 import { showSkill, installSkill, showHelp, showVersion } from "./commands/misc.js";
 
@@ -50,6 +51,16 @@ if (isMain) {
   process.on('SIGTERM', () => { cursor.show(); process.exit(143); });
 
   const cli = parseCLI();
+
+  // Commands end with process.exit(), which drops output still queued on an asynchronous
+  // stdout — and piped stdout is asynchronous on macOS, so large `--json` results read by
+  // another program were cut off at the 64 KB pipe buffer. Blocking writes make every exit
+  // path safe. The MCP server keeps the default: it streams JSON-RPC and never exits early.
+  if (cli.command !== "mcp") {
+    for (const stream of [process.stdout, process.stderr]) {
+      (stream as unknown as { _handle?: { setBlocking?: (blocking: boolean) => void } })._handle?.setBlocking?.(true);
+    }
+  }
 
   if (cli.values.version) {
     await showVersion();
@@ -350,6 +361,18 @@ if (isMain) {
           chunkStrategy: embedChunkStrategy,
           collection: embedCollection,
         });
+        if (configuredExportDir()) await exportVectors();
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exit(1);
+      }
+      break;
+
+    case "export":
+      try {
+        const dim = cli.values.dim === undefined ? undefined : Number(cli.values.dim);
+        if (dim !== undefined && (!Number.isInteger(dim) || dim <= 0)) throw new Error("--dim must be a positive integer");
+        await exportVectors({ out: cli.values.out as string | undefined, dim, quiet: !!cli.values.quiet });
       } catch (error) {
         console.error(error instanceof Error ? error.message : String(error));
         process.exit(1);

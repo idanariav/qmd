@@ -162,6 +162,7 @@ qmd embed -f            # Force re-embed all documents
 qmd embed --chunk-strategy auto  # AST-aware chunking for code files
 qmd embed --max-docs-per-batch <n>  # Cap docs per batch (memory control)
 qmd embed --max-batch-mb <n>    # Cap UTF-8 MB per batch
+qmd export --out <dir>  # Portable int8 vector export into a vault folder (see docs/EXPORT.md)
 qmd status              # Show index health, collection stats, pending embeddings
 qmd cleanup             # Clear caches, remove orphaned data, vacuum database
 ```
