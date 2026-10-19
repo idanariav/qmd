@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-10-19
+
 ### Fixed
 
 - `typescript` was declared as a peer dependency (a leftover from the initial project template), so installing `@idan_ariav/qmd` into a project on TypeScript 4.x failed with `ERESOLVE`. qmd doesn't use TypeScript at runtime; it is now a dev dependency (it's still needed to build).
