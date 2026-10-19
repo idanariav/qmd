@@ -1,9 +1,9 @@
 // Command: export (qmd export) — writes a portable int8 copy of the vector index into a vault
 // folder, so tools without qmd installed (e.g. the pkm-rag plugin on mobile) can run vector search.
-// Format "pkm-vectors" v1: see docs/EXPORT.md.
+// Format "pkm-vectors" v2: see docs/EXPORT.md.
 
 import { createHash } from "crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join, relative, resolve, isAbsolute, sep } from "path";
 import { getContextForFile, getStoreCollections, buildVirtualPath, PROFILE_KEY_PREFIX } from "../../store.js";
 import { getDefaultLlamaCpp, formatQueryForEmbedding } from "../../llm.js";
@@ -12,7 +12,9 @@ import { getDb, getStore, models } from "../store-access.js";
 import { c } from "../utils.js";
 
 export const EXPORT_FORMAT = "pkm-vectors";
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 2;
+// Each vector file stays under Obsidian Sync's 5 MB per-file limit (Standard plan).
+export const MAX_CHUNK_BYTES = 4 * 1024 * 1024;
 export const DEFAULT_EXPORT_DIM = 512;
 const SCALE = 127;
 const SNIPPET_CHARS = 300;
@@ -38,9 +40,32 @@ type ExportCollection = { section?: { heading: string; level: number } };
 
 type Manifest = {
   format: string; version: number; tool: "qmd"; model: string; dim: number; scale: number;
-  exportedAt: string; collections: Record<string, ExportCollection>;
+  exportedAt: string; files: string[]; collections: Record<string, ExportCollection>;
   docs: ExportDoc[]; items: ExportItem[]; words: string[];
 };
+
+/** Writes `bin` as row-aligned chunks `vectors-0.bin`, `vectors-1.bin`, … (each at most
+ *  MAX_CHUNK_BYTES) and deletes vector files of earlier exports the new set doesn't include. */
+export function writeVectorChunks(outDir: string, bin: Int8Array, dim: number): string[] {
+  const chunkBytes = Math.max(1, Math.floor(MAX_CHUNK_BYTES / dim)) * dim;
+  const files: string[] = [];
+  for (let off = 0; off < bin.length || files.length === 0; off += chunkBytes) {
+    const part = bin.subarray(off, Math.min(bin.length, off + chunkBytes));
+    const name = `vectors-${files.length}.bin`;
+    writeFileSync(join(outDir, name), Buffer.from(part.buffer, part.byteOffset, part.byteLength));
+    files.push(name);
+  }
+  for (const f of readdirSync(outDir)) {
+    if (/^vectors(-\d+)?\.bin$/.test(f) && !files.includes(f)) unlinkSync(join(outDir, f));
+  }
+  return files;
+}
+
+/** An export's vector bytes: v2's `files` chunks in order, or v1's single `vectors.bin`. */
+export function readVectorBytes(outDir: string, manifest: { files?: string[] }): Buffer | null {
+  const paths = (manifest.files ?? ["vectors.bin"]).map(f => join(outDir, f));
+  return paths.every(p => existsSync(p)) ? Buffer.concat(paths.map(p => readFileSync(p))) : null;
+}
 
 export type ExportOptions = { out?: string; dim?: number; quiet?: boolean };
 
@@ -98,12 +123,12 @@ function wordList(titles: string[], bodies: string[]): string[] {
 function previousWordVectors(outDir: string, model: string, dim: number): Map<string, Int8Array> {
   const prev = new Map<string, Int8Array>();
   const manifestPath = join(outDir, "manifest.json");
-  const binPath = join(outDir, "vectors.bin");
-  if (!existsSync(manifestPath) || !existsSync(binPath)) return prev;
+  if (!existsSync(manifestPath)) return prev;
   try {
     const m = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
     if (m.format !== EXPORT_FORMAT || m.model !== model || m.dim !== dim) return prev;
-    const bin = readFileSync(binPath);
+    const bin = readVectorBytes(outDir, m);
+    if (!bin) return prev;
     m.words.forEach((w, i) => {
       const off = (m.items.length + i) * dim;
       prev.set(w, new Int8Array(bin.buffer, bin.byteOffset + off, dim));
@@ -227,11 +252,11 @@ export async function exportVectors(opts: ExportOptions = {}): Promise<void> {
     const section = collections.get(name)?.section;
     exportedCollections[name] = section ? { section: { heading: section.heading, level: section.level } } : {};
   }
+  const files = writeVectorChunks(outDir, bin, dim);
   const manifest: Manifest = {
     format: EXPORT_FORMAT, version: EXPORT_VERSION, tool: "qmd", model, dim, scale: SCALE,
-    exportedAt: new Date().toISOString(), collections: exportedCollections, docs, items, words: exportedWords,
+    exportedAt: new Date().toISOString(), files, collections: exportedCollections, docs, items, words: exportedWords,
   };
-  writeFileSync(join(outDir, "vectors.bin"), Buffer.from(bin.buffer));
   writeFileSync(join(outDir, "manifest.json"), JSON.stringify(manifest));
 
   log(`${c.green}✓${c.reset} Exported ${docs.length} docs, ${items.length} vectors, ${exportedWords.length} words ` +

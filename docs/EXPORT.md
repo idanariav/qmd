@@ -22,18 +22,19 @@ export:
 The output directory must sit inside a vault (a `.obsidian/` folder above it): doc paths are
 written vault-relative, and docs from collections outside that vault are skipped.
 
-## Format: `pkm-vectors` v1
+## Format: `pkm-vectors` v2
 
-Two files:
+Files:
 
-- `vectors.bin` — int8, row-major, `dim` bytes per row: all `items` first, then all `words`.
+- `vectors-0.bin`, `vectors-1.bin`, … are int8, row-major, `dim` bytes per row: all `items` first, then all `words`, split on row boundaries into files of at most 4 MiB (Obsidian Sync's Standard plan skips files over 5 MB). Concatenate the files in manifest `files` order. Format v1 (before qmd 2.6 / qvoid 0.6 / qimg 0.5) wrote one `vectors.bin` and had no `files`; readers should accept both.
 - `manifest.json`:
 
 ```jsonc
 {
-  "format": "pkm-vectors", "version": 1, "tool": "qmd",
+  "format": "pkm-vectors", "version": 2, "tool": "qmd",
   "model": "<embed model URI>", "dim": 512, "scale": 127,
   "exportedAt": "<ISO date>",
+  "files": ["vectors-0.bin", "vectors-1.bin", "vectors-2.bin"],
   "collections": { "claims": { "section": { "heading": "Notes", "level": 2 } }, "posts": {} },
   "docs":  [{ "path": "Content/Claims/X.md",       // vault-relative
              "file": "qmd://claims/X.md",          // as in --json search output

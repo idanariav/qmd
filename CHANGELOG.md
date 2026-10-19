@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Export format v2: vectors are split into chunk files.** `qmd export` now writes `vectors-0.bin`, `vectors-1.bin`, … (at most 4 MiB each, row-aligned) listed in a new manifest `files` field, instead of one `vectors.bin`. A single 8.5 MB file was too large for Obsidian Sync's Standard plan (5 MB per file), so the export never reached mobile. Earlier `vectors.bin` files are removed on the next export. Readers should accept v1 (`vectors.bin`) and v2 (`files`); see `docs/EXPORT.md`
+
 ## [2.5.1] - 2026-10-19
 
 ### Fixed
