@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-19
+
 ### Added
 
 - `qmd export [--out <dir>] [--dim <n>]` writes a portable `pkm-vectors` export (int8 chunk + profile vectors truncated to 512 dims, plus a query-side word table) into a vault folder, so clients without qmd (the pkm-rag plugin on mobile) can run vector search. Set `export.path` in `index.yml` to re-export automatically after `qmd embed`. On single-noun queries the lite top-10 shares 7.3/10 docs with pure vector search. See `docs/EXPORT.md`.
